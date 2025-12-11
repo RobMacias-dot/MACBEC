@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# Entornos
+.venv/
+venv/
+
+# Carpeta build del extractor
+solar-extractor/build/
+
+# Salidas del extractor
+solar-extractor/paneles.csv
+solar-extractor/inversores.csv
+
+# PDFs grandes
+solar-extractor/PDFS/
+
+# Archivos temporales
+*.log
+*.tmp
