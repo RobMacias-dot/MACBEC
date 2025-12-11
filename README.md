@@ -100,11 +100,6 @@ Sin embargo, se aceptan:
 
 Envíe un PR o abra un issue.
 
----
-
-## 📄 Licencia
-
-Este repositorio está bajo licencia **MIT**, salvo documentos comerciales privados incluidos en `/Documentos/`.
 
 
 
