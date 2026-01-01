@@ -39,7 +39,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Optional
-
+import json
 import fitz  # PyMuPDF
 import cv2
 import numpy as np
@@ -76,6 +76,13 @@ logging.basicConfig(
 logger = logging.getLogger("V7")
 
 DEBUG_MODE = False  # se activa con flag --debug
+
+# ---------------------------------------------------------------------
+# CONFIGURACIÓN FIJA DEL PROYECTO
+# ---------------------------------------------------------------------
+
+DEFAULT_PDF_FOLDER = r"C:\Users\macia\Documents\Proyectos\MacBec\solar-extractor\PDFS"
+
 
 
 # ---------------------------------------------------------------------
@@ -427,6 +434,17 @@ def distance(c1: Cell, c2: Cell) -> float:
 def ensure_dirs():
     os.makedirs(DEBUG_DIR, exist_ok=True)
     os.makedirs(TABLES_DIR, exist_ok=True)
+
+def safe_cast(val):
+    """
+    Intenta convertir a float.
+    Si no es posible, regresa el valor original (string).
+    """
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return val
+
 
 
 # ---------------------------------------------------------------------
@@ -914,12 +932,176 @@ def _inverter_hint(key: str) -> Optional[str]:
         return "MPPT"
     return None
 
+def detect_panel_models_from_text(text: str) -> List[str]:
+    """
+    Detecta múltiples modelos de panel dentro de un datasheet.
+    Ejemplos:
+    JAM72D40-590/LB
+    JAM72D40-595
+    650-670M-132
+    """
+    patterns = [
+        r"[A-Z]{2,}\d{2,}[A-Z]*[-/]\d{3,4}[A-Z]*",
+        r"\d{3,4}[-–]\d{3,4}[A-Z]*",
+    ]
+
+    found = set()
+    for pat in patterns:
+        for m in re.findall(pat, text):
+            found.add(m.strip())
+
+    return sorted(found)
+
+def build_panel_json(
+    pdf_name: str,
+    panel_specs_tables: Dict[str, str],
+    panel_specs_text: Dict[str, str],
+    full_text: str,
+    ) -> Dict:
+    modelos_detectados = detect_panel_models_from_text(full_text)
+
+    modelos = []
+
+    if not modelos_detectados:
+        modelos_detectados = ["UNICO"]
+
+    for modelo in modelos_detectados:
+        modelo_data = {
+            "modelo": modelo,
+            "electrico": {},
+            "termico": {},
+            "mecanico": {},
+            "origen": {
+                "tabla": bool(panel_specs_tables),
+                "texto": bool(panel_specs_text),
+            },
+            "notas": [],
+        }
+
+        def pick_value(key):
+            if key in panel_specs_tables:
+                return panel_specs_tables[key], "tabla", 0.95
+            if key in panel_specs_text:
+                return panel_specs_text[key], "texto", 0.75
+            return None, None, 0.0
+
+        # --- ELÉCTRICO ---
+        for k in ("Pmax", "Voc", "Vmp", "Isc", "Imp"):
+            val, src, conf = pick_value(k)
+            if val:
+                modelo_data["electrico"][k] = {
+                    "valor": safe_cast(val),
+                    "origen": src,
+                    "confianza": conf,
+                }
+
+        # --- TÉRMICO ---
+        for k in ("TempCoeff_Pmax", "TempCoeff_Voc"):
+            val, src, conf = pick_value(k)
+            if val:
+                modelo_data["termico"][k] = {
+                    "valor": safe_cast(val),
+                    "origen": src,
+                    "confianza": conf,
+                }
+
+        # --- MECÁNICO ---
+        for k in ("Length", "Width", "Weight_panel"):
+            val, src, conf = pick_value(k)
+            if val:
+                modelo_data["mecanico"][k] = {
+                "valor": safe_cast(val),
+                "origen": src,
+                "confianza": conf,
+                }
+
+
+
+        modelos.append(modelo_data)
+
+    return {
+        "meta": {
+            "archivo": pdf_name,
+            "tipo_equipo": "panel",
+            "version_extractor": "v7.1-panel-json",
+        },
+        "modelos": modelos,
+    }
+
+def build_inverter_json(
+    pdf_name: str,
+    inverter_specs_tables: Dict[str, str],
+    inverter_specs_text: Dict[str, str],
+    full_text: str,
+) -> Dict:
+
+    modelos = []
+
+    modelo_data = {
+        "modelo": pdf_name,
+        "electrico": {},
+        "mecanico": {},
+        "origen": {
+            "tabla": bool(inverter_specs_tables),
+            "texto": bool(inverter_specs_text),
+        },
+        "notas": [],
+    }
+
+    def pick_value(key):
+        if key in inverter_specs_tables:
+            return inverter_specs_tables[key], "tabla", 0.95
+        if key in inverter_specs_text:
+            return inverter_specs_text[key], "texto", 0.75
+        return None, None, 0.0
+
+    # --- ELÉCTRICO ---
+    for k in (
+        "P_ac_nominal",
+        "P_ac_max",
+        "Vdc_max",
+        "I_mppt_max",
+        "MPPT_count",
+        "I_out_max",
+        "freq",
+        "eff_max",
+        "eff_cec",
+    ):
+        val, src, conf = pick_value(k)
+        if val:
+            modelo_data["electrico"][k] = {
+                "valor": safe_cast(val),
+                "origen": src,
+                "confianza": conf,
+            }
+
+    # --- MECÁNICO ---
+    for k in ("Weight_inv",):
+        val, src, conf = pick_value(k)
+        if val:
+            modelo_data["mecanico"][k] = {
+                "valor": safe_cast(val),
+                "origen": src,
+                "confianza": conf,
+            }
+
+    modelos.append(modelo_data)
+
+    return {
+        "meta": {
+            "archivo": pdf_name,
+            "tipo_equipo": "inversor",
+            "version_extractor": "v7.1-inverter-json",
+        },
+        "modelos": modelos,
+    }
+
 
 # ---------------------------------------------------------------------
 # PROCESAMIENTO DE UN PDF (TABLA + TEXTO)
 # ---------------------------------------------------------------------
 
-def process_pdf(pdf_path: str) -> Tuple[Dict[str, str], Dict[str, str]]:
+def process_pdf(pdf_path: str) -> Tuple[Dict, Dict]:
     """
     Procesa un PDF:
       1) Modo TABLA visual.
@@ -1018,62 +1200,35 @@ def process_pdf(pdf_path: str) -> Tuple[Dict[str, str], Dict[str, str]]:
         elif key in inverter_specs_text:
             inverter_specs_final[key] = inverter_specs_text[key]
 
-    return panel_specs_final, inverter_specs_final
+        panel_json = build_panel_json(
+            pdf_basename,
+            panel_specs_tables,
+            panel_specs_text,
+            full_text
+        )
 
+        inverter_json = build_inverter_json(
+            pdf_basename,
+            inverter_specs_tables,
+            inverter_specs_text,
+            full_text
+        )
 
-# ---------------------------------------------------------------------
-# MAPEOS A CSV
-# ---------------------------------------------------------------------
-
-def build_panel_row_from_specs(specs: Dict[str, str]) -> Dict[str, Optional[str]]:
-    row = {
-        "potencia_panel": specs.get("Pmax"),
-        "Voc_panel": specs.get("Voc"),
-        "Isc_panel": specs.get("Isc"),
-        "Vmp_panel": specs.get("Vmp"),
-        "Imp_panel": specs.get("Imp"),
-        "largo_panel": specs.get("Length"),
-        "ancho_panel": specs.get("Width"),
-        "peso_panel": specs.get("Weight_panel"),
-        "tension_sistema_max_V": specs.get("Vsys_max"),
-        "coef_temp_Voc_pct_C": specs.get("TempCoeff_Voc"),
-        "coef_temp_Pmax_pct_C": specs.get("TempCoeff_Pmax"),
-        "ip_rating": specs.get("IP_rating_panel"),
-    }
-    return row
-
-
-def build_inverter_row_from_specs(specs: Dict[str, str]) -> Dict[str, Optional[str]]:
-    row = {
-        "potencia_AC_nominal_W": specs.get("P_ac_nominal"),
-        "potencia_AC_max_W": specs.get("P_ac_max"),
-        "max_volt_dc": specs.get("Vdc_max"),
-        "corriente_max_mppt": specs.get("I_mppt_max"),
-        "cantidad_mppts": specs.get("MPPT_count"),
-        "corriente_salida_max": specs.get("I_out_max"),
-        "frecuencia_Hz": specs.get("freq"),
-        "eficiencia_max_pct": specs.get("eff_max"),
-        "eficiencia_CEC_pct": specs.get("eff_cec"),
-        "pf_rango": specs.get("pf_range"),
-        "ip_rating": specs.get("IP_rating_inv"),
-        "peso_kg": specs.get("Weight_inv"),
-    }
-    return row
-
+        return panel_json, inverter_json
 
 # ---------------------------------------------------------------------
-# MAIN
+# MAIN FINAL (JSON ONLY: PANELES + INVERSORES)
 # ---------------------------------------------------------------------
 
 def main():
     global DEBUG_MODE
 
     if len(sys.argv) < 2:
-        print("Uso:")
-        print("    python extract_solar_specs_v7.py <carpeta_pdf> [--debug]")
-        sys.exit(1)
+        logger.info("No se especificó carpeta PDF, usando ruta por defecto.")
+        pdf_folder = DEFAULT_PDF_FOLDER
+    else:
+        pdf_folder = sys.argv[1]
 
-    pdf_folder = sys.argv[1]
     if not os.path.isdir(pdf_folder):
         print(f"La ruta especificada no es una carpeta válida: {pdf_folder}")
         sys.exit(1)
@@ -1091,95 +1246,59 @@ def main():
         if f.lower().endswith(".pdf")
     ]
 
+
     if not pdf_files:
         print("No se encontraron PDFs en la carpeta especificada.")
         sys.exit(0)
 
     logger.info(f"Encontrados {len(pdf_files)} PDFs en {pdf_folder}")
 
-    panel_rows = []
-    inverter_rows = []
+    # Directorios de salida
+    panel_dir = os.path.join(BUILD_DIR, "json_paneles")
+    inverter_dir = os.path.join(BUILD_DIR, "json_inversores")
+
+    os.makedirs(panel_dir, exist_ok=True)
+    os.makedirs(inverter_dir, exist_ok=True)
+
+    # -------------------------------------------------
+    # PROCESAMIENTO DE PDFs
+    # -------------------------------------------------
 
     for pdf_path in pdf_files:
         pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
+
         try:
-            panel_specs, inverter_specs = process_pdf(pdf_path)
+            logger.info(f"--- Procesando {pdf_basename} ---")
 
-            panel_row = build_panel_row_from_specs(panel_specs)
-            inverter_row = build_inverter_row_from_specs(inverter_specs)
+            panel_json, inverter_json = process_pdf(pdf_path)
 
-            # Si quieres, puedes guardar el nombre de archivo:
-            panel_row["archivo"] = pdf_basename
-            inverter_row["archivo"] = pdf_basename
+            # ----- GUARDAR PANEL -----
+            panel_json_path = os.path.join(panel_dir, f"{pdf_basename}.json")
+            with open(panel_json_path, "w", encoding="utf-8") as f:
+                json.dump(panel_json, f, indent=2, ensure_ascii=False)
 
-            panel_rows.append(panel_row)
-            inverter_rows.append(inverter_row)
+            logger.info(f"JSON panel guardado: {panel_json_path}")
+
+            # ----- GUARDAR INVERSOR -----
+            inverter_json_path = os.path.join(inverter_dir, f"{pdf_basename}.json")
+            with open(inverter_json_path, "w", encoding="utf-8") as f:
+                json.dump(inverter_json, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"JSON inversor guardado: {inverter_json_path}")
+
         except Exception as e:
             logger.exception(f"Error procesando {pdf_basename}: {e}")
-            row_p = build_panel_row_from_specs({})
-            row_i = build_inverter_row_from_specs({})
-            row_p["archivo"] = pdf_basename
-            row_i["archivo"] = pdf_basename
-            panel_rows.append(row_p)
-            inverter_rows.append(row_i)
 
-    panel_df = pd.DataFrame(panel_rows, columns=[
-        "archivo",
-        "potencia_panel",
-        "Voc_panel",
-        "Isc_panel",
-        "Vmp_panel",
-        "Imp_panel",
-        "largo_panel",
-        "ancho_panel",
-        "peso_panel",
-        "tension_sistema_max_V",
-        "coef_temp_Voc_pct_C",
-        "coef_temp_Pmax_pct_C",
-        "ip_rating",
-    ])
+    print("\nProceso completado correctamente.")
+    print(f"Paneles JSON   → {panel_dir}")
+    print(f"Inversores JSON→ {inverter_dir}")
+    print(f"Logs           → {LOG_FILE}")
+    print(f"Debug tablas   → {TABLES_DIR}")
 
-    inverter_df = pd.DataFrame(inverter_rows, columns=[
-        "archivo",
-        "potencia_AC_nominal_W",
-        "potencia_AC_max_W",
-        "max_volt_dc",
-        "corriente_max_mppt",
-        "cantidad_mppts",
-        "corriente_salida_max",
-        "frecuencia_Hz",
-        "eficiencia_max_pct",
-        "eficiencia_CEC_pct",
-        "pf_rango",
-        "ip_rating",
-        "peso_kg",
-    ])
 
-    panel_csv_path = os.path.join(BASE_DIR, "paneles.csv")
-    inverter_csv_path = os.path.join(BASE_DIR, "inversores.csv")
-
-    panel_df.to_csv(panel_csv_path, index=False)
-    inverter_df.to_csv(inverter_csv_path, index=False)
-
-    logger.info(f"paneles.csv guardado en {panel_csv_path}")
-    logger.info(f"inversores.csv guardado en {inverter_csv_path}")
-    print(f"Proceso completado.")
-    print(f"Paneles   → {panel_csv_path}")
-    print(f"Inversores→ {inverter_csv_path}")
-    print(f"Logs      → {LOG_FILE}")
-    print(f"Tablas dbg→ {TABLES_DIR}")
-
+# ---------------------------------------------------------------------
+# ENTRY POINT
+# ---------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Si NO se pasaron argumentos (caso típico al ejecutar desde VS Code),
-    # inyectamos los valores por defecto.
-    if len(sys.argv) == 1:
-        sys.argv = [
-            "extract", 
-            r"C:\Users\macia\Documents\Proyectos\MacBec\solar-extractor\PDFS",
-            "--outdir", r"C:\Users\macia\Documents\Proyectos\MacBec\solar-extractor\build",
-            "--debug",
-            "--dump-text",
-        ]
-    # Ya con sys.argv listo (sea por defecto o por CLI), llamamos a main()
     main()
