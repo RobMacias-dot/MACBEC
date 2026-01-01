@@ -1,0 +1,15 @@
+
+---
+
+# 📦 requirements.txt (VERSIÓN FINAL)
+
+Crea el archivo `requirements.txt` con este contenido:
+
+```txt
+pymupdf
+opencv-python
+pytesseract
+numpy
+pandas
+pillow
+
