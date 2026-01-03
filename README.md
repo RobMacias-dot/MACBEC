@@ -1,105 +1,112 @@
-# MACBEC — Plataforma de Herramientas para Proyectos Solares y Eléctricos
+# Solar Extractor – Extractor de Fichas Técnicas FV (v7)
 
-MACBEC es un conjunto de herramientas, scripts y documentación desarrollados para optimizar, automatizar y profesionalizar procesos dentro del sector de instalaciones fotovoltaicas y eléctricas. Este repositorio agrupa los módulos en constante desarrollo utilizados dentro del ecosistema MACBEC.
+Extractor profesional en Python para **analizar fichas técnicas en PDF** de
+**paneles solares e inversores**, y convertirlas en **JSON estructurado**
+listo para su uso en **cotizadores automáticos**, validación técnica y análisis.
+
+Este proyecto utiliza un enfoque **híbrido**:
+- Extracción de texto nativo (PDF digital)
+- OCR avanzado (PDF escaneado)
+- Detección visual de tablas con OpenCV
+- Normalización y validación de datos técnicos
+
+> ⚠️ El JSON es la **fuente única de verdad**.  
+> CSV no se usa para cálculos, solo para validación humana si se requiere.
 
 ---
 
-## Estructura del Proyecto
+## 🚀 Funcionalidades principales
 
-MACBEC/
+- Lectura automática de múltiples PDFs
+- Soporte para PDFs digitales y escaneados
+- Detección de tablas técnicas (modo visual)
+- OCR por celda con Tesseract
+- Extracción semántica por patrones (ES / EN)
+- Separación por tipo de equipo:
+  - Paneles solares
+  - Inversores
+- Salida estructurada en JSON:
+  - valores
+  - origen (tabla / texto)
+  - nivel de confianza
+- Manejo de errores por archivo (no se detiene el proceso)
+
+---
+
+## 📂 Estructura del proyecto
+
+solar-extractor/
 │
-├── solar-extractor/ # Módulo inteligente para lectura de datasheets
-│ ├── extract_solar_specs_v1.py
-│ ├── extract_solar_specs_v2.py
-│ ├── extract_solar_specs_v3.py
-│ ├── extract_solar_specs_v4.py
-│ ├── extract_solar_specs_v5.py
-│ ├── extract_solar_specs_v6.py
-│ ├── extract_solar_specs_v7.py # Versión híbrida actual
-│ ├── README.md # Documentación específica del módulo
-│ └── build/ # Salidas CSV y logs (ignorado por Git)
+├── extract_solar_specs_v7.py
+├── README.md
+├── requirements.txt
 │
-├── Logos/ # Imágenes y material gráfico
-├── Documentos/ # Documentos PDF, propuestas, etc.
+├── PDFS/ # Carpeta de PDFs (entrada)
 │
-└── .gitignore
+├── build/
+│ ├── json_paneles/ # Salida JSON de paneles
+│ ├── json_inversores/ # Salida JSON de inversores
+│ ├── _tables/ # Debug visual de tablas
+│ └── _debug/ # Logs del proceso
+│
+└── .venv/ # Entorno virtual (NO se sube a Git)
+
+
 
 
 ---
 
-## 🔧 Módulo principal actual: *solar-extractor*
+## ⚙️ Requisitos
 
-El módulo **solar-extractor** es un sistema híbrido para la extracción automática de información técnica desde datasheets de paneles solares e inversores.
+- Python 3.9 o superior
+- Tesseract OCR instalado en el sistema
+- Librerías Python indicadas en `requirements.txt`
 
-Incluye:
+### Instalar dependencias
 
-- OCR con Tesseract  
-- Lectura nativa de PDF con PyMuPDF  
-- Detección de tablas con OpenCV  
-- Regex inteligente español/inglés  
-- Modo híbrido (tablas + texto + OCR)  
-- Corrección automática de valores  
-- Exportación a CSV (`paneles.csv` e `inversores.csv`)  
+```bash
+pip install -r requirements.txt
 
-Documentación del módulo:  
-→ `solar-extractor/README.md`
+Instalar Tesseract (Windows)
 
----
+https://github.com/UB-Mannheim/tesseract/wiki
 
-## 🚀 Objetivo del repositorio
+Asegúrate de que tesseract.exe esté en el PATH.
 
-MACBEC busca centralizar:
+Por cada PDF procesado se generan dos archivos JSON:
 
-- Flujos de trabajo automatizados  
-- Scripts y herramientas internas  
-- Generadores de cotizaciones  
-- Extractores de datos  
-- Material visual y documentación  
+build/json_paneles/<archivo>.json
+build/json_inversores/<archivo>.json
 
-Todo bajo una estructura estandarizada y mantenible.
+Ejemplo de estructura (panel)
+{
+  "meta": {
+    "archivo": "JINKO_620",
+    "tipo_equipo": "panel"
+  },
+  "modelos": [
+    {
+      "modelo": "JAM72D40-620",
+      "electrico": {
+        "Pmax": { "valor": 620, "origen": "tabla", "confianza": 0.95 }
+      }
+    }
+  ]
+}
 
----
+🧠 Diseño del sistema
+PDF → Extractor → JSON → Cotizador automático
 
-## 🧠 Tecnologías utilizadas
 
-- **Python 3.x**
-- PyMuPDF (fitz)
-- OpenCV
-- Tesseract OCR
-- Pandas / NumPy
-- Git y GitHub Actions *(próximamente)*
-- Documentación en Markdown
+Este extractor está pensado como etapa base de un sistema de:
 
----
+cotización fotovoltaica
 
-## 📈 Futuro del proyecto
+validación eléctrica
 
-### Módulos planeados:
-- 🟦 **MACBEC Web Dashboard** — Visualización de proyectos solares  
-- ⚙️ **Cálculo automático de sistemas** — Inversores, paneles, cableado  
-- 💲 **Cotizador inteligente** — Cálculos de energía y payback  
-- 📤 **Integración API** — Envío de datos a CRM o portal web  
-- 🧾 **Generador de propuestas PDF** totalmente automatizado  
+análisis técnico
 
-### Mejoras técnicas:
-- Contenedores Docker para despliegue
-- Workflow CI/CD con GitHub Actions
-- Tests automáticos para módulos críticos
-- Uso de bases de datos SQLite / PostgreSQL
-
----
-
-## 🤝 Contribuciones
-
-Este proyecto actualmente es de uso interno.  
-Sin embargo, se aceptan:
-
-- Mejoras técnicas
-- Documentación
-- Nuevos módulos o scripts
-
-Envíe un PR o abra un issue.
-
+generación de propuestas
 
 
 

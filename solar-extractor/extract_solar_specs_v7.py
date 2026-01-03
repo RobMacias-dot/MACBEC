@@ -114,16 +114,6 @@ class Table:
 # RANGOS Y PATRONES SEMÁNTICOS
 # ---------------------------------------------------------------------
 
-VALUE_RANGES = {
-    "Voc": (30, 55),
-    "Vmp": (28, 50),
-    "Isc": (8, 20),
-    "Imp": (8, 18),
-    "Pmax": (200, 700),
-    "MPPT": (1, 12),
-    "Vdc_max": (500, 1500),
-}
-
 # Patrones por etiqueta para modo TABLA (igual idea que V6C)
 PANEL_PATTERNS = {
     "Pmax": [
@@ -146,21 +136,6 @@ PANEL_PATTERNS = {
     "Imp": [
         "imp", "current at mpp", "corriente en mpp",
         "corriente a potencia maxima"
-    ],
-    "Vsys_max": [
-        "max system voltage", "maximum system voltage",
-        "tension maxima del sistema", "system voltage max"
-    ],
-    "TempCoeff_Voc": [
-        "temp coefficient of voc", "temperature coefficient of voc",
-        "coeficiente de temperatura voc"
-    ],
-    "TempCoeff_Pmax": [
-        "temp coefficient of pmax", "temperature coefficient of pmax",
-        "coeficiente de temperatura pmax"
-    ],
-    "IP_rating_panel": [
-        "ip65", "ip67", "ip68", "ip rating", "grado de proteccion", "ip"
     ],
     "Length": [
         "length", "largo", "height", "altura", "dimension largo"
@@ -198,209 +173,14 @@ INVERTER_PATTERNS = {
         "max output current", "corriente de salida maxima",
         "max ac output current"
     ],
-    "freq": [
-        "grid frequency", "nominal frequency", "frecuencia nominal",
-        "frecuencia de red"
-    ],
-    "eff_max": [
-        "max efficiency", "eficiencia maxima", "maximum efficiency"
-    ],
-    "eff_cec": [
-        "cec efficiency", "weighted efficiency", "eficiencia cec",
-        "eficiencia ponderada"
-    ],
-    "pf_range": [
-        "power factor", "factor de potencia", "power factor range",
-        "rango de factor de potencia"
-    ],
-    "IP_rating_inv": [
-        "ip65", "ip66", "ip67", "ip68", "ip rating", "grado de proteccion", "ip"
-    ],
-    "Weight_inv": [
-        "weight", "peso", "net weight"
+    "P_pv_max": [
+    "max pv power",
+    "maximum pv power",
+    "recommended pv power",
+    "potencia maxima fotovoltaica",
+    "potencia recomendada del generador"
     ],
 }
-
-
-# ------------------ PATRONES REGEX PARA MODO TEXTO -------------------
-
-def _r_num(unit_hint: str = "") -> str:
-    """
-    Devuelve un grupo regex genérico para número con unidad opcional.
-    """
-    unit_part = r"\s*(" + unit_hint + r")?" if unit_hint else r"\s*([a-zA-Z%°/]+)?"
-    return r"([-+]?\d+(?:[.,]\d+)?)" + unit_part
-
-
-PANEL_TEXT_REGEX: Dict[str, List[re.Pattern]] = {
-    "Pmax": [
-        re.compile(
-            r"(maximum\s+power|rated\s+power|peak\s+power|potencia\s+(?:máxima|nominal)|power\s+output)"
-            r".{0,30}" + _r_num(r"[kK]?[wW][pP]?"),
-            re.IGNORECASE | re.DOTALL,
-        ),
-        re.compile(
-            r"Pmax[^0-9\-+]{0,20}" + _r_num(r"[kK]?[wW][pP]?"),
-            re.IGNORECASE,
-        ),
-    ],
-    "Voc": [
-        re.compile(
-            r"(open\s+circuit\s+voltage|voltaje\s+de\s+circuito\s+abierto|tensi[oó]n\s+de\s+circuito\s+abierto)"
-            r".{0,30}" + _r_num(r"[vV]"),
-            re.IGNORECASE | re.DOTALL,
-        ),
-        re.compile(r"Voc[^0-9\-+]{0,20}" + _r_num(r"[vV]"), re.IGNORECASE),
-    ],
-    "Vmp": [
-        re.compile(
-            r"(maximum\s+power\s+voltage|voltage\s+at\s+pmpp?|tensi[oó]n\s+a\s+potencia\s+m[aá]xima)"
-            r".{0,30}" + _r_num(r"[vV]"),
-            re.IGNORECASE | re.DOTALL,
-        ),
-        re.compile(r"Vmp[^0-9\-+]{0,20}" + _r_num(r"[vV]"), re.IGNORECASE),
-    ],
-    "Isc": [
-        re.compile(
-            r"(short\s+circuit\s+current|corriente\s+de\s+corto\s+circuito)"
-            r".{0,30}" + _r_num(r"[aA]"),
-            re.IGNORECASE | re.DOTALL,
-        ),
-        re.compile(r"Isc[^0-9\-+]{0,20}" + _r_num(r"[aA]"), re.IGNORECASE),
-    ],
-    "Imp": [
-        re.compile(
-            r"(maximum\s+power\s+current|current\s+at\s+pmpp?|corriente\s+a\s+potencia\s+m[aá]xima)"
-            r".{0,30}" + _r_num(r"[aA]"),
-            re.IGNORECASE | re.DOTALL,
-        ),
-        re.compile(r"Imp[^0-9\-+]{0,20}" + _r_num(r"[aA]"), re.IGNORECASE),
-    ],
-    "Vsys_max": [
-        re.compile(
-            r"(maximum\s+system\s+voltage|max\s+system\s+voltage|tensi[oó]n\s+m[aá]xima\s+del\s+sistema)"
-            r".{0,30}" + _r_num(r"[vV]"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "TempCoeff_Voc": [
-        re.compile(
-            r"(temperature\s+coefficient\s+of\s+Voc|coeficiente\s+de\s+temperatura\s+Voc)"
-            r".{0,30}" + _r_num(r"%\s*/\s*°?C"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "TempCoeff_Pmax": [
-        re.compile(
-            r"(temperature\s+coefficient\s+of\s+Pmax|coeficiente\s+de\s+temperatura\s+Pmax)"
-            r".{0,30}" + _r_num(r"%\s*/\s*°?C"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "Length": [
-        re.compile(
-            r"(dimension[s]?|dimensiones|length|largo|height|altura)"
-            r".{0,50}?(\d{3,5})\s*[x×]\s*\d{3,5}\s*[x×]\s*\d{2,3}",
-            re.IGNORECASE | re.DOTALL,
-        ),
-    ],
-    "Width": [
-        re.compile(
-            r"(dimension[s]?|dimensiones|length|largo|height|altura)"
-            r".{0,50}?\d{3,5}\s*[x×]\s*(\d{3,5})\s*[x×]\s*\d{2,3}",
-            re.IGNORECASE | re.DOTALL,
-        ),
-    ],
-    "Weight_panel": [
-        re.compile(
-            r"(weight|peso).{0,20}" + _r_num(r"[kK]?[gG]"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-}
-
-INVERTER_TEXT_REGEX: Dict[str, List[re.Pattern]] = {
-    "P_ac_nominal": [
-        re.compile(
-            r"(rated\s+ac\s+output\s+power|nominal\s+ac\s+power|potencia\s+nominal\s+de\s+salida)"
-            r".{0,40}" + _r_num(r"[kK]?[wW]"),
-            re.IGNORECASE | re.DOTALL,
-        ),
-        re.compile(
-            r"potencia\s+nominal\s+de\s+salida\s+(\d+(?:[.,]\d+)?)\s*(k?w)",
-            re.IGNORECASE,
-        ),
-    ],
-    "P_ac_max": [
-        re.compile(
-            r"(max(?:imum)?\s+ac\s+output\s+power|potencia\s+m[aá]xima\s+de\s+salida)"
-            r".{0,40}" + _r_num(r"[kK]?[wW]"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "Vdc_max": [
-        re.compile(
-            r"(max(?:imum)?\s+(?:pv|dc)\s+voltage|maximo\s+voltaje\s+(?:fv|cd)|voltaje\s+m[aá]ximo\s+de\s+entrada)"
-            r".{0,40}" + _r_num(r"[vV]"),
-            re.IGNORECASE | re.DOTALL,
-        ),
-    ],
-    "I_mppt_max": [
-        re.compile(
-            r"(max(?:imum)?\s+input\s+current|corriente\s+m[aá]xima\s+de\s+entrada)"
-            r".{0,40}" + _r_num(r"[aA]"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "MPPT_count": [
-        re.compile(
-            r"(number\s+of\s+mppt|mpp\s+trackers|n[uú]mero\s+de\s+mppt)"
-            r".{0,30}(\d+)",
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "I_out_max": [
-        re.compile(
-            r"(max(?:imum)?\s+output\s+current|corriente\s+m[aá]xima\s+de\s+salida)"
-            r".{0,40}" + _r_num(r"[aA]"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "freq": [
-        re.compile(
-            r"(grid\s+frequency|frecuencia\s+nominal\s+de\s+la\s+red|frecuencia\s+de\s+red)"
-            r".{0,40}" + _r_num(r"[hH][zZ]"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "eff_max": [
-        re.compile(
-            r"(max(?:imum)?\s+efficiency|eficiencia\s+m[aá]xima)"
-            r".{0,40}" + _r_num(r"%"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "eff_cec": [
-        re.compile(
-            r"(cec\s+efficiency|weighted\s+efficiency|eficiencia\s+cec|eficiencia\s+ponderada)"
-            r".{0,40}" + _r_num(r"%"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "pf_range": [
-        re.compile(
-            r"(power\s+factor|factor\s+de\s+potencia).{0,60}",
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-    "Weight_inv": [
-        re.compile(
-            r"(weight|peso).{0,20}" + _r_num(r"[kK]?[gG]"),
-            re.IGNORECASE | re.DOTALL,
-        )
-    ],
-}
-
 
 # ---------------------------------------------------------------------
 # UTILIDADES GENERALES
@@ -444,6 +224,147 @@ def safe_cast(val):
         return float(val)
     except (ValueError, TypeError):
         return val
+    
+def in_range(val, min_v, max_v):
+    return val is not None and min_v <= val <= max_v
+
+
+def add_derived(diagnostics, field, value, method, confidence):
+    entry = {
+        "field": field,
+        "value": round(value, 3),
+        "method": method,
+        "confidence": round(confidence, 2),
+    }
+    if confidence < 0.75:
+        entry["warning"] = "Confianza < 75%, favor de corroborar con PDF"
+    diagnostics["derived_fields"].append(entry)
+
+def validate_and_infer_panel(panel: dict) -> dict:
+    diagnostics = {
+        "missing_fields": [],
+        "derived_fields": [],
+        "warnings": []
+    }
+
+    # Rangos físicos razonables
+    RANGES = {
+        "voc_v": (25, 80),
+        "isc_a": (5, 25),
+        "vmp_v": (20, 70),
+        "imp_a": (3, 25),
+        "power_w": (50, 800),
+    }
+
+    P = panel.get("power_w")
+    Voc = panel.get("voc_v")
+    Isc = panel.get("isc_a")
+    Vmp = panel.get("vmp_v")
+    Imp = panel.get("imp_a")
+
+    # Validaciones directas
+    for field, (mn, mx) in RANGES.items():
+        if panel.get(field) is not None and not in_range(panel[field], mn, mx):
+            diagnostics["warnings"].append(
+                f"Valor fuera de rango físico esperado: {field}={panel[field]}"
+            )
+
+    # Inferir Imp
+    if Imp is None and P and Vmp:
+        calc = P / Vmp
+        if Isc is None or calc < Isc:
+            panel["imp_a"] = calc
+            add_derived(diagnostics, "imp_a", calc, "power_w / vmp_v", 0.72)
+
+    # Inferir Vmp
+    if Vmp is None and P and Imp:
+        calc = P / Imp
+        if Voc is None or calc < Voc:
+            panel["vmp_v"] = calc
+            add_derived(diagnostics, "vmp_v", calc, "power_w / imp_a", 0.72)
+
+    # Inferir Power
+    if P is None and Vmp and Imp:
+        calc = Vmp * Imp
+        panel["power_w"] = calc
+        add_derived(diagnostics, "power_w", calc, "vmp_v * imp_a", 0.75)
+
+    # Validaciones físicas
+    if panel.get("vmp_v") and panel.get("voc_v"):
+        if panel["vmp_v"] >= panel["voc_v"]:
+            diagnostics["warnings"].append("vmp_v >= voc_v (inconsistencia física)")
+
+    if panel.get("imp_a") and panel.get("isc_a"):
+        if panel["imp_a"] >= panel["isc_a"]:
+            diagnostics["warnings"].append("imp_a >= isc_a (inconsistencia física)")
+
+    # Campos críticos obligatorios
+    REQUIRED = [
+        "power_w",
+        "voc_v",
+        "isc_a",
+        "vmp_v",
+        "imp_a",
+        "panel_width_mm",
+        "panel_height_mm",
+    ]
+
+    for field in REQUIRED:
+        if panel.get(field) is None:
+            diagnostics["missing_fields"].append(field)
+
+    panel["diagnostics"] = diagnostics
+    return panel
+
+def validate_and_infer_inverter(inv: dict) -> dict:
+    diagnostics = {
+        "missing_fields": [],
+        "derived_fields": [],
+        "warnings": []
+    }
+
+    RANGES = {
+        "max_dc_voltage_v": (300, 1500),
+        "max_isc_per_mppt_a": (10, 40),
+        "max_ac_output_current_a": (5, 100),
+        "mppt_count": (1, 12),
+    }
+
+    for field, (mn, mx) in RANGES.items():
+        if inv.get(field) is not None and not in_range(inv[field], mn, mx):
+            diagnostics["warnings"].append(
+                f"Valor fuera de rango esperado: {field}={inv[field]}"
+            )
+
+    # Inferencia conservadora de potencia PV
+    if inv.get("max_pv_power_w") is None:
+        ac_current = inv.get("max_ac_output_current_a")
+        if ac_current:
+            estimate = ac_current * 230  # monofásico conservador
+            inv["max_pv_power_w"] = estimate
+            add_derived(
+                diagnostics,
+                "max_pv_power_w",
+                estimate,
+                "max_ac_output_current_a * 230V",
+                0.65
+            )
+
+    REQUIRED = [
+        "max_dc_voltage_v",
+        "mppt_count",
+        "max_isc_per_mppt_a",
+        "max_ac_output_current_a",
+        "inverter_type",
+        "max_pv_power_w",
+    ]
+
+    for field in REQUIRED:
+        if inv.get(field) is None:
+            diagnostics["missing_fields"].append(field)
+
+    inv["diagnostics"] = diagnostics
+    return inv
 
 
 
@@ -697,40 +618,6 @@ def assign_rows_cols_to_cells(rects: List[Tuple[int, int, int, int]],
 # OCR POR CELDA Y CORRECCIÓN DE VALORES
 # ---------------------------------------------------------------------
 
-def ocr_cell(img_bgr: np.ndarray, cell: Cell) -> str:
-    x, y, w, h = cell.x, cell.y, cell.w, cell.h
-    h_pad = int(h * 0.1)
-    w_pad = int(w * 0.05)
-    x0 = max(0, x - w_pad)
-    y0 = max(0, y - h_pad)
-    x1 = min(img_bgr.shape[1], x + w + w_pad)
-    y1 = min(img_bgr.shape[0], y + h + h_pad)
-
-    roi = img_bgr[y0:y1, x0:x1]
-    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    gray = cv2.medianBlur(gray, 3)
-    _, thr = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    config = (
-        "--oem 3 "
-        "--psm 6 "
-        "-c tessedit_char_whitelist=0123456789.,-+xXkKwWVAabcdefghijklmnopqrstuvwxyz"
-        "%/°IPip() "
-    )
-
-    data = pytesseract.image_to_data(
-        thr,
-        config=config,
-        output_type=pytesseract.Output.DICT,
-        lang="eng"
-    )
-
-    words = [txt.strip() for txt in data["text"] if txt.strip()]
-    text = " ".join(words).strip()
-    logger.debug(f"OCR Cell [P{cell.page_index} T{cell.table_id} R{cell.row} C{cell.col}]: '{text}'")
-    return text
-
-
 def parse_numeric_from_text(raw: str) -> Optional[float]:
     if not raw:
         return None
@@ -844,69 +731,6 @@ def classify_pair(label_text: str, value_text: str) -> Tuple[Optional[str], Opti
 # EXTRACCIÓN TEXTO → ESPECIFICACIONES
 # ---------------------------------------------------------------------
 
-def extract_specs_from_text(text: str) -> Tuple[Dict[str, str], Dict[str, str]]:
-    """
-    Usa regex sobre el texto global para identificar especificaciones
-    de panel e inversor.
-    """
-    panel_specs: Dict[str, str] = {}
-    inverter_specs: Dict[str, str] = {}
-
-    # PANEL
-    for key, patterns in PANEL_TEXT_REGEX.items():
-        for pat in patterns:
-            m = pat.search(text)
-            if not m:
-                continue
-            # los últimos dos grupos suelen ser valor + unidad
-            groups = [g for g in m.groups() if g is not None]
-            if not groups:
-                continue
-            raw_val = groups[-2] if len(groups) >= 2 else groups[-1]
-            val, norm = clean_and_parse_value(raw_val, key_hint=_panel_hint(key))
-            if key in ("Length", "Width", "Weight_panel"):
-                if val is not None:
-                    panel_specs[key] = str(val)
-                else:
-                    panel_specs[key] = norm
-            else:
-                if val is not None:
-                    panel_specs[key] = str(val)
-                else:
-                    panel_specs[key] = norm
-            logger.info(f"[TEXT] PANEL {key}: '{panel_specs[key]}' (raw='{raw_val}')")
-            break  # primer match por clave
-
-    # INVERSOR
-    for key, patterns in INVERTER_TEXT_REGEX.items():
-        for pat in patterns:
-            m = pat.search(text)
-            if not m:
-                continue
-            groups = [g for g in m.groups() if g is not None]
-            if not groups:
-                continue
-            raw_val = groups[-2] if len(groups) >= 2 else groups[-1]
-
-            val, norm = clean_and_parse_value(raw_val, key_hint=_inverter_hint(key))
-            if key in ("pf_range",):
-                inverter_specs["pf_range"] = norm
-            elif key in ("Weight_inv",):
-                if val is not None:
-                    inverter_specs[key] = str(val)
-                else:
-                    inverter_specs[key] = norm
-            else:
-                if val is not None:
-                    inverter_specs[key] = str(val)
-                else:
-                    inverter_specs[key] = norm
-            logger.info(f"[TEXT] INV {key}: '{inverter_specs[key]}' (raw='{raw_val}')")
-            break
-
-    return panel_specs, inverter_specs
-
-
 def _panel_hint(key: str) -> Optional[str]:
     if key == "Pmax":
         return "Pmax"
@@ -952,171 +776,374 @@ def detect_panel_models_from_text(text: str) -> List[str]:
 
     return sorted(found)
 
-def build_panel_json(
-    pdf_name: str,
-    panel_specs_tables: Dict[str, str],
-    panel_specs_text: Dict[str, str],
+def _preprocess_variants(gray: np.ndarray) -> List[np.ndarray]:
+    outs = []
+
+    # 1) Otsu
+    g1 = cv2.medianBlur(gray, 3)
+    _, th1 = cv2.threshold(g1, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    outs.append(th1)
+
+    # 2) Adaptive
+    th2 = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                cv2.THRESH_BINARY, 31, 5)
+    outs.append(th2)
+
+    # 3) Morph close (para letras rotas)
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    th3 = cv2.morphologyEx(th1, cv2.MORPH_CLOSE, k, iterations=1)
+    outs.append(th3)
+
+    return outs
+
+
+def _tess_score(data: Dict) -> float:
+    confs = []
+    for c in data.get("conf", []):
+        try:
+            v = float(c)
+            if v >= 0:
+                confs.append(v)
+        except:
+            pass
+    return float(np.mean(confs)) if confs else 0.0
+
+
+def ocr_cell_best(img_bgr: np.ndarray, cell: Cell) -> str:
+    x, y, w, h = cell.x, cell.y, cell.w, cell.h
+    h_pad = int(h * 0.12)
+    w_pad = int(w * 0.06)
+    x0 = max(0, x - w_pad); y0 = max(0, y - h_pad)
+    x1 = min(img_bgr.shape[1], x + w + w_pad)
+    y1 = min(img_bgr.shape[0], y + h + h_pad)
+
+    roi = img_bgr[y0:y1, x0:x1]
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+    # upscale para celdas pequeñas
+    if min(gray.shape[:2]) < 40:
+        gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+
+    variants = _preprocess_variants(gray)
+
+    best_text = ""
+    best_score = -1.0
+
+    # PSM candidates: 7 (una línea) y 6/11 fallback
+    psm_list = [7, 6, 11]
+
+    # whitelist numérica moderada (sirve para valores)
+    wl = "0123456789.,-+/%VAWkKmMgGxX×() "
+
+    for thr in variants:
+        for psm in psm_list:
+            cfg = f"--oem 3 --psm {psm} -c tessedit_char_whitelist={wl}"
+            data = pytesseract.image_to_data(
+                thr, lang="eng+spa", config=cfg,
+                output_type=pytesseract.Output.DICT
+            )
+            words = [t.strip() for t in data["text"] if t.strip()]
+            text = " ".join(words).strip()
+            score = _tess_score(data)
+
+            # bonus si parece valor útil (tiene dígitos)
+            digit_bonus = sum(ch.isdigit() for ch in text)
+            score += min(10, digit_bonus)
+
+            if score > best_score and len(text) >= 1:
+                best_score = score
+                best_text = text
+
+    return best_text
+
+
+def detect_doc_type(full_text: str,
+                    panel_tables: Dict[str, str],
+                    inv_tables: Dict[str, str]) -> str:
+    t = normalize_text(full_text)
+
+    panel_hits = 0
+    inv_hits = 0
+
+    # pistas por texto
+    panel_keywords = ["open circuit voltage", "short circuit current", "module efficiency",
+                      "pv module", "mpp voltage", "imp", "isc", "voc"]
+    inv_keywords = ["mppt", "inverter", "grid", "ac output", "max dc voltage",
+                    "string", "rated output power", "utility grid"]
+
+    for kw in panel_keywords:
+        if kw in t: panel_hits += 2
+    for kw in inv_keywords:
+        if kw in t: inv_hits += 2
+
+    # pistas por tablas (si ya detectaste llaves típicas)
+    if any(k in panel_tables for k in ("Pmax", "Voc", "Isc", "Vmp", "Imp")):
+        panel_hits += 5
+    if any(k in inv_tables for k in ("Vdc_max", "MPPT_count", "I_out_max", "P_ac_nominal")):
+        inv_hits += 5
+
+    return "panel" if panel_hits >= inv_hits else "inverter"
+
+def to_float(s: str) -> Optional[float]:
+    if s is None: return None
+    s = str(s).strip().replace(",", ".")
+    m = re.search(r"[-+]?\d+(?:\.\d+)?", s)
+    return float(m.group(0)) if m else None
+
+def kw_to_w(value: Optional[float], raw: str) -> Optional[float]:
+    if value is None: return None
+    r = (raw or "").lower()
+    if "kw" in r and value < 1000:
+        return value * 1000.0
+    return value
+
+def parse_dimensions_mm(text: str) -> Tuple[Optional[int], Optional[int]]:
+    # busca 2 números grandes (mm) tipo 2278 x 1134
+    t = text.replace("×", "x").lower()
+    m = re.search(r"(\d{3,5})\s*x\s*(\d{3,5})", t)
+    if not m: return None, None
+    a = int(m.group(1)); b = int(m.group(2))
+    h = max(a, b); w = min(a, b)
+    return w, h
+
+def parse_weight_kg(raw: str) -> Optional[float]:
+    v = to_float(raw)
+    if v is None: return None
+    r = (raw or "").lower()
+    if "g" in r and "kg" not in r:
+        return v / 1000.0
+    return v
+
+KNOWN_BRANDS = [
+    "jinko", "trina", "ja solar", "longi", "canadian solar", "risen",
+    "growatt", "huawei", "solis", "fronius", "sma", "goodwe"
+]
+
+def detect_brand(text: str) -> Optional[str]:
+    t = normalize_text(text)
+    for b in KNOWN_BRANDS:
+        if b in t:
+            return b.title() if b != "ja solar" else "JA Solar"
+    return None
+
+def detect_model(text: str, doc_type: str) -> Optional[str]:
+    # panel: JAM72..., JKM-..., etc.
+    if doc_type == "panel":
+        cands = detect_panel_models_from_text(text)
+        return cands[0] if cands else None
+    # inversor: MIN 6000TL-X, SUN2000-..., etc.
+    m = re.search(r"\b([A-Z]{2,}[A-Z0-9\- ]{3,})\b", text)
+    return m.group(1).strip() if m else None
+
+def build_panel_output(pdf_name: str, full_text: str,
+                       tab: Dict[str, str], txt: Dict[str, str]) -> Dict:
+    def pick(k):
+        a = tab.get(k)
+        b = txt.get(k)
+    
+        if a and b:
+            return a if a["confidence"] >= b["confidence"] else b
+        return a or b
+
+
+    brand = detect_brand(full_text)
+    model = detect_model(full_text, "panel") or pdf_name
+
+    pmax_raw = pick("Pmax")
+    voc_raw  = pick("Voc")
+    isc_raw  = pick("Isc")
+    vmp_raw  = pick("Vmp")
+    imp_raw  = pick("Imp")
+    w_raw    = pick("Width")  # si viene como número solo, mejor usa dimensiones abajo
+    l_raw    = pick("Length")
+    voc      = pick("Voc")
+    voc_v    = to_float(voc["value"]) if voc else None
+
+
+    # dimensiones: intenta desde texto completo primero
+    width_mm, height_mm = parse_dimensions_mm(full_text)
+    if not width_mm or not height_mm:
+        # fallback si ya tenías Length/Width como textos
+        width_mm, height_mm = parse_dimensions_mm(f"{l_raw} x {w_raw}")
+
+    out = {
+        "schema_version": "1.0",
+        "type": "panel",
+        "brand": brand,
+        "model": model,
+        "power_w": kw_to_w(to_float(pmax_raw), str(pmax_raw)) if pmax_raw else None,
+        "voc_v": to_float(voc_raw) if voc_raw else None,
+        "isc_a": to_float(isc_raw) if isc_raw else None,
+        "vmp_v": to_float(vmp_raw) if vmp_raw else None,
+        "imp_a": to_float(imp_raw) if imp_raw else None,
+        "panel_width_mm": width_mm,
+        "panel_height_mm": height_mm,
+        "panel_weight_kg": parse_weight_kg(pick("Weight_panel") or "") if (pick("Weight_panel")) else None
+    }
+
+    if voc:
+        logger.info(
+            f"[DECISION] Voc={voc['value']} "
+            f"(source={voc['source']}, conf={voc['confidence']})"
+        )
+
+
+    # limpia Nones (opcional)
+    return out
+
+
+def build_inverter_output(pdf_name: str, full_text: str,
+                          tab: Dict[str, str], txt: Dict[str, str]) -> Dict:
+    def pick(k):
+        return tab.get(k) or txt.get(k)
+
+    brand = detect_brand(full_text)
+    model = detect_model(full_text, "inverter") or pdf_name
+
+    # claves internas existentes
+    vdc_raw = pick("Vdc_max")
+    mppt_raw = pick("MPPT_count")
+    i_mppt_raw = pick("I_mppt_max")
+    i_out_raw = pick("I_out_max")
+
+    # NUEVO: max_pv_power_w (añadir regex/patrón)
+    max_pv_raw = pick("P_pv_max")  # lo agregas en regex/patterns
+
+    inv_type = detect_inverter_phase(full_text, tab)
+
+    if not vdc_raw:
+    # fallback común en inversores
+        m = re.search(r"(?:max.*dc.*voltage|dc.*max).*?(\d{3,4})", full_text.lower())
+    if m:
+        vdc_raw = m.group(1)
+    
+
+
+    out = {
+        "schema_version": "1.0",
+        "type": "inverter",
+        "brand": brand,
+        "model": model,
+        "max_dc_voltage_v": to_float(vdc_raw),
+        "mppt_count": int(to_float(mppt_raw)) if mppt_raw and to_float(mppt_raw) else None,
+        "max_isc_per_mppt_a": to_float(i_mppt_raw) if i_mppt_raw else None,
+        "inverter_type": inv_type,
+        "max_pv_power_w": kw_to_w(to_float(max_pv_raw), str(max_pv_raw)) if max_pv_raw else None,
+    }
+
+    return out
+
+
+def detect_inverter_phase(
     full_text: str,
-    ) -> Dict:
-    modelos_detectados = detect_panel_models_from_text(full_text)
+    inverter_tables: Optional[Dict[str, str]] = None
+) -> Optional[str]:
+    """
+    Detecta el tipo de fase del inversor usando:
+    1) Tablas (alta confianza)
+    2) Texto normalizado
+    3) Símbolos eléctricos (1~, 3~, L1 L2 L3)
+    """
 
-    modelos = []
+    # -------------------------------------------------
+    # 1) TABLAS (alta confianza)
+    # -------------------------------------------------
+    if inverter_tables:
+        for k, v in inverter_tables.items():
+            key = normalize_text(k)
+            val = normalize_text(v)
 
-    if not modelos_detectados:
-        modelos_detectados = ["UNICO"]
+            if any(x in key for x in ("phase", "phases", "fase", "output phase", "grid")):
+                if any(x in val for x in ("3", "three", "trifas", "3~", "l1 l2 l3")):
+                    return "trifásico"
+                if any(x in val for x in ("2", "two", "bifas")):
+                    return "bifásico"
+                if any(x in val for x in ("1", "single", "mono", "1~", "l-n")):
+                    return "monofásico"
 
-    for modelo in modelos_detectados:
-        modelo_data = {
-            "modelo": modelo,
-            "electrico": {},
-            "termico": {},
-            "mecanico": {},
-            "origen": {
-                "tabla": bool(panel_specs_tables),
-                "texto": bool(panel_specs_text),
-            },
-            "notas": [],
-        }
+    # -------------------------------------------------
+    # 2) TEXTO NORMALIZADO
+    # -------------------------------------------------
+    t = normalize_text(full_text)
 
-        def pick_value(key):
-            if key in panel_specs_tables:
-                return panel_specs_tables[key], "tabla", 0.95
-            if key in panel_specs_text:
-                return panel_specs_text[key], "texto", 0.75
-            return None, None, 0.0
+    if any(x in t for x in (
+        "three phase", "3 phase", "three-phase",
+        "trifasico", "trifásico"
+    )):
+        return "trifásico"
 
-        # --- ELÉCTRICO ---
-        for k in ("Pmax", "Voc", "Vmp", "Isc", "Imp"):
-            val, src, conf = pick_value(k)
-            if val:
-                modelo_data["electrico"][k] = {
-                    "valor": safe_cast(val),
-                    "origen": src,
-                    "confianza": conf,
-                }
+    if any(x in t for x in (
+        "split phase", "two phase", "2 phase",
+        "bifasico", "bifásico"
+    )):
+        return "bifásico"
 
-        # --- TÉRMICO ---
-        for k in ("TempCoeff_Pmax", "TempCoeff_Voc"):
-            val, src, conf = pick_value(k)
-            if val:
-                modelo_data["termico"][k] = {
-                    "valor": safe_cast(val),
-                    "origen": src,
-                    "confianza": conf,
-                }
+    if any(x in t for x in (
+        "single phase", "1 phase",
+        "monofasico", "monofásico"
+    )):
+        return "monofásico"
 
-        # --- MECÁNICO ---
-        for k in ("Length", "Width", "Weight_panel"):
-            val, src, conf = pick_value(k)
-            if val:
-                modelo_data["mecanico"][k] = {
-                "valor": safe_cast(val),
-                "origen": src,
-                "confianza": conf,
-                }
+    # -------------------------------------------------
+    # 3) SÍMBOLOS ELÉCTRICOS (MUY COMÚN EN DATASHEETS)
+    # -------------------------------------------------
+    if re.search(r"\b3\s*[~∿]\b", full_text):
+        return "trifásico"
 
+    if re.search(r"\b1\s*[~∿]\b", full_text):
+        return "monofásico"
 
+    if re.search(r"\bL1\s+L2\s+L3\b", full_text, re.IGNORECASE):
+        return "trifásico"
 
-        modelos.append(modelo_data)
+    if re.search(r"\bL\s*-\s*N\b", full_text, re.IGNORECASE):
+        return "monofásico"
 
-    return {
-        "meta": {
-            "archivo": pdf_name,
-            "tipo_equipo": "panel",
-            "version_extractor": "v7.1-panel-json",
-        },
-        "modelos": modelos,
-    }
-
-def build_inverter_json(
-    pdf_name: str,
-    inverter_specs_tables: Dict[str, str],
-    inverter_specs_text: Dict[str, str],
-    full_text: str,
-) -> Dict:
-
-    modelos = []
-
-    modelo_data = {
-        "modelo": pdf_name,
-        "electrico": {},
-        "mecanico": {},
-        "origen": {
-            "tabla": bool(inverter_specs_tables),
-            "texto": bool(inverter_specs_text),
-        },
-        "notas": [],
-    }
-
-    def pick_value(key):
-        if key in inverter_specs_tables:
-            return inverter_specs_tables[key], "tabla", 0.95
-        if key in inverter_specs_text:
-            return inverter_specs_text[key], "texto", 0.75
-        return None, None, 0.0
-
-    # --- ELÉCTRICO ---
-    for k in (
-        "P_ac_nominal",
-        "P_ac_max",
-        "Vdc_max",
-        "I_mppt_max",
-        "MPPT_count",
-        "I_out_max",
-        "freq",
-        "eff_max",
-        "eff_cec",
-    ):
-        val, src, conf = pick_value(k)
-        if val:
-            modelo_data["electrico"][k] = {
-                "valor": safe_cast(val),
-                "origen": src,
-                "confianza": conf,
-            }
-
-    # --- MECÁNICO ---
-    for k in ("Weight_inv",):
-        val, src, conf = pick_value(k)
-        if val:
-            modelo_data["mecanico"][k] = {
-                "valor": safe_cast(val),
-                "origen": src,
-                "confianza": conf,
-            }
-
-    modelos.append(modelo_data)
-
-    return {
-        "meta": {
-            "archivo": pdf_name,
-            "tipo_equipo": "inversor",
-            "version_extractor": "v7.1-inverter-json",
-        },
-        "modelos": modelos,
-    }
-
+    return None
 
 # ---------------------------------------------------------------------
 # PROCESAMIENTO DE UN PDF (TABLA + TEXTO)
 # ---------------------------------------------------------------------
 
-def process_pdf(pdf_path: str) -> Tuple[Dict, Dict]:
-    """
-    Procesa un PDF:
-      1) Modo TABLA visual.
-      2) Modo TEXTO (PyMuPDF + OCR página).
-      3) Fusiona resultados.
-    """
+def process_pdf(pdf_path: str) -> Dict:
     pdf_basename = os.path.splitext(os.path.basename(pdf_path))[0]
     logger.info(f"Procesando PDF: {pdf_basename}")
 
+    # --- 1) Render PDF ---
     images, full_text = render_pdf_to_images_and_text(pdf_path)
 
-    panel_specs_tables: Dict[str, str] = {}
-    inverter_specs_tables: Dict[str, str] = {}
+    panel_specs_tables: Dict[str, dict] = {}
+    inverter_specs_tables: Dict[str, dict] = {}
 
-    # ----------- 1) MODO TABLA (si hay algo que parezca tabla) ----------
+    # --- SCHEMAS BASE ---
+    PANEL_SCHEMA = {
+        "type": "panel",
+        "brand": None,
+        "model": None,
+        "power_w": None,
+        "voc_v": None,
+        "isc_a": None,
+        "vmp_v": None,
+        "imp_a": None,
+        "efficiency_percent": None,
+        "panel_width_mm": None,
+        "panel_height_mm": None,
+        "panel_weight_kg": None,
+    }
+
+    INVERTER_SCHEMA = {
+        "type": "inverter",
+        "brand": None,
+        "model": None,
+        "max_dc_voltage_v": None,
+        "mppt_count": None,
+        "max_isc_per_mppt_a": None,
+        "max_ac_output_current_a": None,
+        "inverter_type": None,
+        "max_pv_power_w": None,
+    }
+
+    # --- 2) TABLAS ---
     for page_idx, img in enumerate(images):
         tables = detect_tables_on_page(img, page_idx, pdf_basename)
         if not tables:
@@ -1124,97 +1151,71 @@ def process_pdf(pdf_path: str) -> Tuple[Dict, Dict]:
 
         for table in tables:
             for cell in table.cells:
-                cell.text = ocr_cell(img, cell)
-
-            # logging OCR celdas
-            for c in table.cells:
-                logger.info(
-                    f"[TABLA OCR] P{c.page_index} T{c.table_id} R{c.row} C{c.col}: '{c.text}'"
-                )
+                cell.text = ocr_cell_best(img, cell)
 
             pairs = match_label_to_value_cells(table)
             for label_cell, value_cell in pairs:
-                label_text = label_cell.text
-                value_text = value_cell.text
+                p_key, i_key = classify_pair(label_cell.text, value_cell.text)
 
-                p_key, i_key = classify_pair(label_text, value_text)
-                logger.info(
-                    f"[TABLA MATCH] P{label_cell.page_index} T{label_cell.table_id} "
-                    f"'{label_text}' → '{value_text}' (panel_key={p_key}, inverter_key={i_key})"
-                )
+                if p_key:
+                    num_hint = _panel_hint(p_key)
+                    value_num, value_text_norm = clean_and_parse_value(
+                        value_cell.text, key_hint=num_hint
+                    )
+                    panel_specs_tables[p_key] = {
+                        "value": value_num if value_num is not None else value_text_norm,
+                        "source": "table",
+                        "confidence": 0.95,
+                    }
 
-                if p_key is not None:
-                    numeric_hint = _panel_hint(p_key)
-                    value_num, value_text_norm = clean_and_parse_value(value_text, key_hint=numeric_hint)
+                if i_key:
+                    num_hint = _inverter_hint(i_key)
+                    value_num, value_text_norm = clean_and_parse_value(
+                        value_cell.text, key_hint=num_hint
+                    )
+                    inverter_specs_tables[i_key] = {
+                        "value": value_num if value_num is not None else value_text_norm,
+                        "source": "table",
+                        "confidence": 0.95,
+                    }
 
-                    if p_key == "IP_rating_panel":
-                        panel_specs_tables["IP_rating_panel"] = value_text_norm
-                    elif p_key in ("Length", "Width", "Weight_panel"):
-                        val, txt = clean_and_parse_value(value_text, key_hint=None)
-                        if val is not None:
-                            panel_specs_tables[p_key] = str(val)
-                        else:
-                            panel_specs_tables[p_key] = txt
-                    else:
-                        if value_num is not None:
-                            panel_specs_tables[p_key] = str(value_num)
-                        else:
-                            panel_specs_tables[p_key] = value_text_norm
+    # --- 3) TEXTO (placeholder por ahora) ---
+    panel_specs_text = {}
+    inverter_specs_text = {}
 
-                if i_key is not None:
-                    numeric_hint = _inverter_hint(i_key)
-                    value_num, value_text_norm = clean_and_parse_value(value_text, key_hint=numeric_hint)
+    # --- 4) CLASIFICACIÓN ---
+    doc_type = detect_doc_type(full_text, panel_specs_tables, inverter_specs_tables)
 
-                    if i_key == "pf_range":
-                        inverter_specs_tables["pf_range"] = value_text_norm
-                    elif i_key == "IP_rating_inv":
-                        inverter_specs_tables["IP_rating_inv"] = value_text_norm
-                    elif i_key == "Weight_inv":
-                        val, txt = clean_and_parse_value(value_text, key_hint=None)
-                        if val is not None:
-                            inverter_specs_tables[i_key] = str(val)
-                        else:
-                            inverter_specs_tables[i_key] = txt
-                    else:
-                        if value_num is not None:
-                            inverter_specs_tables[i_key] = str(value_num)
-                        else:
-                            inverter_specs_tables[i_key] = value_text_norm
-
-    # ----------- 2) MODO TEXTO  ----------------------------------------
-    panel_specs_text, inverter_specs_text = extract_specs_from_text(full_text)
-
-    # ----------- 3) FUSIÓN: tabla tiene prioridad, texto rellena  -------
-    panel_specs_final: Dict[str, str] = {}
-    inverter_specs_final: Dict[str, str] = {}
-
-    for key in set(list(PANEL_TEXT_REGEX.keys()) + list(PANEL_PATTERNS.keys())):
-        if key in panel_specs_tables:
-            panel_specs_final[key] = panel_specs_tables[key]
-        elif key in panel_specs_text:
-            panel_specs_final[key] = panel_specs_text[key]
-
-    for key in set(list(INVERTER_TEXT_REGEX.keys()) + list(INVERTER_PATTERNS.keys())):
-        if key in inverter_specs_tables:
-            inverter_specs_final[key] = inverter_specs_tables[key]
-        elif key in inverter_specs_text:
-            inverter_specs_final[key] = inverter_specs_text[key]
-
-        panel_json = build_panel_json(
-            pdf_basename,
-            panel_specs_tables,
-            panel_specs_text,
-            full_text
+    # --- 5) CONSTRUCCIÓN + SCHEMA + VALIDACIÓN ---
+    if doc_type == "panel":
+        raw_panel = build_panel_output(
+            pdf_basename, full_text, panel_specs_tables, panel_specs_text
         )
 
-        inverter_json = build_inverter_json(
-            pdf_basename,
-            inverter_specs_tables,
-            inverter_specs_text,
-            full_text
+        output = PANEL_SCHEMA.copy()
+        output.update(raw_panel)
+
+        # 🔥 VALIDACIÓN + INFERENCIA
+        output = validate_and_infer_panel(output)
+
+        return output
+
+    elif doc_type == "inverter":
+        raw_inverter = build_inverter_output(
+            pdf_basename, full_text, inverter_specs_tables, inverter_specs_text
         )
 
-        return panel_json, inverter_json
+        output = INVERTER_SCHEMA.copy()
+        output.update(raw_inverter)
+
+        # 🔥 VALIDACIÓN + INFERENCIA
+        output = validate_and_infer_inverter(output)
+
+        return output
+
+    else:
+        raise ValueError("No se pudo determinar el tipo de documento (panel/inverter)")
+
 
 # ---------------------------------------------------------------------
 # MAIN FINAL (JSON ONLY: PANELES + INVERSORES)
@@ -1270,22 +1271,16 @@ def main():
         try:
             logger.info(f"--- Procesando {pdf_basename} ---")
 
-            panel_json, inverter_json = process_pdf(pdf_path)
+            result = process_pdf(pdf_path)
 
-            # ----- GUARDAR PANEL -----
-            panel_json_path = os.path.join(panel_dir, f"{pdf_basename}.json")
-            with open(panel_json_path, "w", encoding="utf-8") as f:
-                json.dump(panel_json, f, indent=2, ensure_ascii=False)
+            tipo = result.get("type")
 
-            logger.info(f"JSON panel guardado: {panel_json_path}")
+            out_dir = panel_dir if tipo == "panel" else inverter_dir
+            out_path = os.path.join(out_dir, f"{pdf_basename}.json")
 
-            # ----- GUARDAR INVERSOR -----
-            inverter_json_path = os.path.join(inverter_dir, f"{pdf_basename}.json")
-            with open(inverter_json_path, "w", encoding="utf-8") as f:
-                json.dump(inverter_json, f, indent=2, ensure_ascii=False)
-
-            logger.info(f"JSON inversor guardado: {inverter_json_path}")
-
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, indent=2, ensure_ascii=False)
+  
         except Exception as e:
             logger.exception(f"Error procesando {pdf_basename}: {e}")
 

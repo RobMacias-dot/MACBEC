@@ -1,21 +1,96 @@
-# Python
+##############################
+# Python (general)
+##############################
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# Entornos
+##############################
+# Entornos virtuales
+##############################
 .venv/
 venv/
+env/
+ENV/
 
-# Carpeta build del extractor
+##############################
+# Pytest / coverage
+##############################
+.pytest_cache/
+.coverage
+htmlcov/
+
+##############################
+# IDEs / Editors
+##############################
+.vscode/
+.idea/
+*.iml
+
+##############################
+# Sistema operativo
+##############################
+.DS_Store
+Thumbs.db
+desktop.ini
+
+##############################
+# Build / dist
+##############################
+build/
+dist/
+*.egg-info/
+
+##############################
+# Extractor Solar – salidas
+##############################
 solar-extractor/build/
+solar-extractor/output/
+solar-extractor/results/
 
-# Salidas del extractor
-solar-extractor/paneles.csv
-solar-extractor/inversores.csv
+# CSV / JSON generados automáticamente
+solar-extractor/*.csv
+solar-extractor/*.json
 
-# PDFs grandes
+##############################
+# PDFs de entrada (pesados)
+##############################
 solar-extractor/PDFS/
+*.pdf
 
-# Archivos temporales
+##############################
+# OCR / OpenCV temporales
+##############################
 *.log
 *.tmp
+*.bak
+*.cache
+
+##############################
+# Imágenes temporales OCR
+##############################
+*.jpg
+*.jpeg
+*.png
+*.tiff
+*.bmp
+
+##############################
+# Documentación comercial
+##############################
+*.docx
+*.pptx
+*.xlsx
+
+# Temporales de Office
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
+##############################
+# Seguridad
+##############################
+.env
+.env.*
+*.key
+*.pem
