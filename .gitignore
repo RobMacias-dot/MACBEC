@@ -94,3 +94,22 @@ solar-extractor/PDFS/
 .env.*
 *.key
 *.pem
+##############################
+# Branding / Logos MacBec
+##############################
+Logo.jpg
+Logo Final.jpeg
+Logo FINALL.jpg
+
+# Variantes comunes
+logo.jpg
+logo.png
+logo*.jpg
+logo*.png
+
+##############################
+# Recursos gráficos pesados
+##############################
+assets/logos/
+assets/images/
+branding/

@@ -648,26 +648,6 @@ def correct_value_by_range(
     if "kw" in raw_norm and value < 1000:
         value *= 1000.0
 
-    if key_hint and key_hint in VALUE_RANGES:
-        low, high = VALUE_RANGES[key_hint]
-        if value < low:
-            for factor in (10, 100):
-                new_val = value * factor
-                if low <= new_val <= high:
-                    value = new_val
-                    break
-        elif value > high * 10:
-            for factor in (0.1, 0.01):
-                new_val = value * factor
-                if low <= new_val <= high:
-                    value = new_val
-                    break
-        if value < 0:
-            return None
-
-    return value
-
-
 def clean_and_parse_value(raw: str, key_hint: Optional[str] = None) -> Tuple[Optional[float], str]:
     if not raw:
         return None, ""
@@ -1029,6 +1009,7 @@ def build_inverter_output(pdf_name: str, full_text: str,
         "max_isc_per_mppt_a": to_float(i_mppt_raw) if i_mppt_raw else None,
         "inverter_type": inv_type,
         "max_pv_power_w": kw_to_w(to_float(max_pv_raw), str(max_pv_raw)) if max_pv_raw else None,
+        "max_ac_output_current_a": to_float(i_out_raw) if i_out_raw else None,
     }
 
     return out
