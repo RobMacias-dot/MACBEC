@@ -1,0 +1,5 @@
+filename,potencia_AC_nominal_W,potencia_AC_max_W,cantidad_mppt,Vdc_max_V,isc_max_por_mppt_A,corriente_AC_max_A,frecuencia_Hz,eficiencia_max_pct,eficiencia_CEC_pct,pf_rango,ip_rating,peso_kg
+JA-M72D40-6002FLB_FichaTecnica.pdf,,,26.0,,,,,,,,,
+MIN_7000-10000TL-X2_Hoja_de_datos_MX_20241114.pdf,7000.0,,3.0,600.0,,33.5,,,,,,20.0
+SC1000-DES080628.pdf,0.0,,8.0,880.0,,28.8,,,,4,IP54,
+"Solis_Inverter_S5-GC(124-125)K-HV_Datasheet_MEX_V1,6_202507.pdf",124.0,,99.0,1000.0,10.0,149.2,60.0,,,,,91.0

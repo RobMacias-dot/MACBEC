@@ -1,0 +1,3 @@
+filename,potencia_nominal_W,Voc_V,Isc_A,Vmp_V,Imp_A,peso_kg,tension_sistema_max_V,coef_temp_Voc_pct_C,coef_temp_Pmax_pct_C,ip_rating
+ficha-tecnica-panel-solar-24v-SCL-320WP1.pdf,320.0,37.1,8.63,45.7,9.0,27.0,,,,
+JST650-670M-132-210.pdf,25.0,23.0,20.0,3.0,20.0,,,-0.28,-0.36,IP68

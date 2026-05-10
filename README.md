@@ -5,12 +5,13 @@ Extractor profesional en Python para **analizar fichas técnicas en PDF** de
 listo para su uso en **cotizadores automáticos**, validación técnica y análisis.
 
 Este proyecto utiliza un enfoque **híbrido**:
+
 - Extracción de texto nativo (PDF digital)
 - OCR avanzado (PDF escaneado)
 - Detección visual de tablas con OpenCV
 - Normalización y validación de datos técnicos
 
-> ⚠️ El JSON es la **fuente única de verdad**.  
+> ⚠️ El JSON es la **fuente única de verdad**.
 > CSV no se usa para cálculos, solo para validación humana si se requiere.
 
 ---
@@ -46,13 +47,10 @@ solar-extractor/
 ├── build/
 │ ├── json_paneles/ # Salida JSON de paneles
 │ ├── json_inversores/ # Salida JSON de inversores
-│ ├── _tables/ # Debug visual de tablas
-│ └── _debug/ # Logs del proceso
+│ ├── \_tables/ # Debug visual de tablas
+│ └── \_debug/ # Logs del proceso
 │
 └── .venv/ # Entorno virtual (NO se sube a Git)
-
-
-
 
 ---
 
@@ -64,7 +62,7 @@ solar-extractor/
 
 ### Instalar dependencias
 
-```bash
+````bash
 pip install -r requirements.txt
 
 Instalar Tesseract (Windows)
@@ -110,3 +108,80 @@ generación de propuestas
 
 
 
+=======
+# MacBec Solar App
+
+Proyecto base Flutter para la aplicación interna **MacBec Solar**.
+
+Esta carpeta ya está organizada para continuar con la **Fase 0** del proyecto:
+
+- Arquitectura modular por feature.
+- Enfoque local-first.
+- Riverpod para estado.
+- GoRouter para navegación.
+- Drift + SQLite para base local.
+- Preparada para sincronización futura sin backend en MVP.
+
+## Estructura principal
+
+```text
+macbec_solar_app/
+  pubspec.yaml
+  analysis_options.yaml
+  lib/
+    main.dart
+    app/
+    core/
+    data/
+    features/
+    shared/
+  assets/
+    branding/
+    seeds/
+  docs/
+    planning/
+    reference/
+  tools/
+    solar_extractor/
+````
+
+## Uso recomendado
+
+Si todavía no existe el proyecto Flutter generado por SDK:
+
+```bash
+flutter create macbec_solar_app
+```
+
+Después copia el contenido de esta carpeta encima del proyecto creado y ejecuta:
+
+```bash
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter run
+```
+
+## Qué se limpió del ZIP original
+
+Se eliminaron de esta versión organizada:
+
+- `.git/`
+- `.venv/`
+- `__pycache__/`
+- `.pytest_cache/`
+- cachés y archivos generados innecesarios
+
+Esto reduce el peso del proyecto y deja solo archivos útiles para continuar el desarrollo.
+
+## Ubicación de materiales
+
+- Logos: `assets/branding/`
+- Seeds CSV preliminares: `assets/seeds/`
+- Documentos funcionales: `docs/reference/documentos_funcionales/`
+- PDFs de ejemplo: `docs/reference/pdfs/`
+- Catálogos Excel originales: `docs/reference/catalogos/`
+- Extractor Python: `tools/solar_extractor/`
+
+## Siguiente fase
+
+La siguiente fase recomendada es implementar el **Setup Admin local real** con SQLite, Secure Storage y sesión persistente.
