@@ -7,6 +7,7 @@ import '../../../../core/validators/validators.dart';
 import '../../../../shared/components/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../application/quotation_draft_controller.dart';
+import '../../data/quotation_draft_repository.dart';
 import '../../domain/entities/quotation_draft_prospect.dart';
 
 class CotizacionProspectoFormScreen extends ConsumerStatefulWidget {
@@ -27,6 +28,8 @@ class _CotizacionProspectoFormScreenState
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _notesController = TextEditingController();
+
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -56,9 +59,13 @@ class _CotizacionProspectoFormScreenState
     super.dispose();
   }
 
-  void _saveProspect() {
+  Future<void> _saveProspect() async {
     final isValid = _formKey.currentState?.validate() ?? false;
-    if (!isValid) return;
+    if (!isValid || _isSaving) return;
+
+    setState(() {
+      _isSaving = true;
+    });
 
     final prospect = QuotationDraftProspect(
       fullName: _fullNameController.text.trim(),
@@ -69,18 +76,49 @@ class _CotizacionProspectoFormScreenState
       notes: _cleanNullableText(_notesController.text),
     );
 
-    ref.read(quotationDraftProspectProvider.notifier).state = prospect;
+    try {
+      final draftId = await ref.read(quotationDraftRepositoryProvider).create(
+            CreateQuotationDraftInput(
+              prospectName: prospect.fullName,
+              phone: prospect.phone,
+              whatsapp: prospect.whatsapp,
+              email: prospect.email,
+              address: prospect.address,
+              notes: prospect.notes,
+            ),
+          );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Prospecto provisional guardado.'),
-      ),
-    );
+      ref.read(activeQuotationDraftIdProvider.notifier).state = draftId;
+      ref.read(quotationDraftProspectProvider.notifier).state = prospect;
+      ref.invalidate(quotationDraftsControllerProvider);
 
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go(AppRoutes.cotizacion);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Prospecto guardado como pendiente de recibo CFE.'),
+        ),
+      );
+
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.cotizacion);
+      }
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo guardar el prospecto: $error'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
@@ -100,8 +138,8 @@ class _CotizacionProspectoFormScreenState
             SectionCard(
               title: 'Datos mínimos del prospecto',
               subtitle:
-                  'Estos datos ayudan a identificar la cotización provisional. '
-                  'El cliente formal y el expediente se crearán cuando la cotización sea aceptada.',
+                  'Si el cliente no tiene su recibo CFE en este momento, '
+                  'puedes guardar sus datos como pendiente y continuar con otra persona.',
               child: Column(
                 children: [
                   TextFormField(
@@ -173,19 +211,31 @@ class _CotizacionProspectoFormScreenState
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: _saveProspect,
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Guardar prospecto provisional'),
+              onPressed: _isSaving ? null : _saveProspect,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(
+                _isSaving
+                    ? 'Guardando...'
+                    : 'Guardar pendiente de recibo CFE',
+              ),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go(AppRoutes.cotizacion);
-                }
-              },
+              onPressed: _isSaving
+                  ? null
+                  : () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go(AppRoutes.cotizacion);
+                      }
+                    },
               icon: const Icon(Icons.arrow_back),
               label: const Text('Regresar'),
             ),
