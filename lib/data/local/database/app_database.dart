@@ -136,6 +136,10 @@ class QuotationDrafts extends Table with LocalFirstColumns {
   TextColumn get cfeHolderName => text().nullable()();
   TextColumn get cfeServiceAddress => text().nullable()();
   TextColumn get rpu => text().nullable()();
+  TextColumn get cfeTariff => text().nullable()();
+  TextColumn get cfeBillingPeriod => text().nullable()();
+  RealColumn get cfeCurrentPeriodKwh => real().nullable()();
+  RealColumn get cfeTotalToPay => real().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -166,8 +170,10 @@ class Panels extends Table with LocalFirstColumns {
   TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
   DateTimeColumn get lastPriceUpdateAt => dateTime().nullable()();
   TextColumn get priceSource => text().nullable()();
-  BoolColumn get isPriceLocked => boolean().withDefault(const Constant(false))();
-  BoolColumn get requiresPriceReview => boolean().withDefault(const Constant(false))();
+  BoolColumn get isPriceLocked =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get requiresPriceReview =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -186,8 +192,10 @@ class Inverters extends Table with LocalFirstColumns {
   TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
   DateTimeColumn get lastPriceUpdateAt => dateTime().nullable()();
   TextColumn get priceSource => text().nullable()();
-  BoolColumn get isPriceLocked => boolean().withDefault(const Constant(false))();
-  BoolColumn get requiresPriceReview => boolean().withDefault(const Constant(false))();
+  BoolColumn get isPriceLocked =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get requiresPriceReview =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -244,7 +252,8 @@ class CfeReceipts extends Table with LocalFirstColumns {
   TextColumn get billingPeriod => text().nullable()();
   RealColumn get currentPeriodKwh => real().nullable()();
   RealColumn get totalToPay => real().nullable()();
-  TextColumn get originalDocumentId => text().nullable().references(Documents, #id)();
+  TextColumn get originalDocumentId =>
+      text().nullable().references(Documents, #id)();
   BoolColumn get isValidated => boolean().withDefault(const Constant(false))();
 
   @override
@@ -287,7 +296,8 @@ class Quotations extends Table with LocalFirstColumns {
   RealColumn get ivaRate => real().withDefault(const Constant(0.16))();
   RealColumn get generalUtilityRate => real().nullable()();
   RealColumn get discountAmount => real().withDefault(const Constant(0))();
-  RealColumn get advancePaymentAmount => real().withDefault(const Constant(0))();
+  RealColumn get advancePaymentAmount =>
+      real().withDefault(const Constant(0))();
   RealColumn get subtotal => real().withDefault(const Constant(0))();
   RealColumn get ivaAmount => real().withDefault(const Constant(0))();
   RealColumn get total => real().withDefault(const Constant(0))();
@@ -320,7 +330,8 @@ class CompanySettings extends Table with LocalFirstColumns {
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get address => text().nullable()();
-  TextColumn get logoDocumentId => text().nullable().references(Documents, #id)();
+  TextColumn get logoDocumentId =>
+      text().nullable().references(Documents, #id)();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -390,7 +401,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -400,6 +411,17 @@ class AppDatabase extends _$AppDatabase {
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 2) {
             await m.createTable(quotationDrafts);
+          }
+
+          if (from < 3) {
+            await m.addColumn(quotationDrafts, quotationDrafts.cfeTariff);
+            await m.addColumn(
+                quotationDrafts, quotationDrafts.cfeBillingPeriod);
+            await m.addColumn(
+              quotationDrafts,
+              quotationDrafts.cfeCurrentPeriodKwh,
+            );
+            await m.addColumn(quotationDrafts, quotationDrafts.cfeTotalToPay);
           }
         },
       );

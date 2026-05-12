@@ -22,6 +22,46 @@ class CreateQuotationDraftInput {
   final String? notes;
 }
 
+class AttachCfeReceiptDocumentInput {
+  const AttachCfeReceiptDocumentInput({
+    required this.draftId,
+    required this.localPath,
+    required this.fileName,
+    required this.documentType,
+    this.mimeType,
+    this.sizeBytes,
+  });
+
+  final String draftId;
+  final String localPath;
+  final String fileName;
+  final String documentType;
+  final String? mimeType;
+  final int? sizeBytes;
+}
+
+class UpdateCfeReceiptReviewInput {
+  const UpdateCfeReceiptReviewInput({
+    required this.draftId,
+    this.holderName,
+    this.serviceAddress,
+    this.rpu,
+    this.tariff,
+    this.billingPeriod,
+    this.currentPeriodKwh,
+    this.totalToPay,
+  });
+
+  final String draftId;
+  final String? holderName;
+  final String? serviceAddress;
+  final String? rpu;
+  final String? tariff;
+  final String? billingPeriod;
+  final double? currentPeriodKwh;
+  final double? totalToPay;
+}
+
 class QuotationDraftRepository {
   QuotationDraftRepository(this._database);
 
@@ -48,6 +88,97 @@ class QuotationDraftRepository {
         );
 
     return draftId;
+  }
+
+  Future<String> attachCfeReceiptDocument(
+    AttachCfeReceiptDocumentInput input,
+  ) async {
+    final documentId = _uuid.v4();
+    final now = DateTime.now();
+
+    return _database.transaction(() async {
+      final draft = await (_database.select(_database.quotationDrafts)
+            ..where(
+              (table) =>
+                  table.id.equals(input.draftId) &
+                  table.isDeleted.equals(false),
+            ))
+          .getSingleOrNull();
+
+      if (draft == null) {
+        throw StateError(
+          'No existe un borrador activo válido para asociar el recibo CFE.',
+        );
+      }
+
+      await _database.into(_database.documents).insert(
+            DocumentsCompanion.insert(
+              id: Value(documentId),
+              documentType: input.documentType.trim(),
+              localPath: input.localPath.trim(),
+              fileName: input.fileName.trim(),
+              mimeType: Value(_cleanNullableText(input.mimeType)),
+              sizeBytes: Value(input.sizeBytes),
+              createdAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+
+      await (_database.update(_database.quotationDrafts)
+            ..where((table) => table.id.equals(input.draftId)))
+          .write(
+        QuotationDraftsCompanion(
+          status: const Value(
+            quotation_entity.QuotationDraftStatus.receiptReceived,
+          ),
+          hasCfeReceipt: const Value(true),
+          cfeReceiptDocumentId: Value(documentId),
+          updatedAt: Value(now),
+        ),
+      );
+
+      return documentId;
+    });
+  }
+
+  Future<void> updateCfeReceiptReview(
+    UpdateCfeReceiptReviewInput input,
+  ) async {
+    final now = DateTime.now();
+
+    final draft = await (_database.select(_database.quotationDrafts)
+          ..where(
+            (table) =>
+                table.id.equals(input.draftId) & table.isDeleted.equals(false),
+          ))
+        .getSingleOrNull();
+
+    if (draft == null) {
+      throw StateError(
+        'No existe un borrador activo válido para actualizar la revisión CFE.',
+      );
+    }
+
+    if (!draft.hasCfeReceipt || draft.cfeReceiptDocumentId == null) {
+      throw StateError(
+        'Primero debes guardar un recibo CFE antes de capturar la revisión.',
+      );
+    }
+
+    await (_database.update(_database.quotationDrafts)
+          ..where((table) => table.id.equals(input.draftId)))
+        .write(
+      QuotationDraftsCompanion(
+        cfeHolderName: Value(_cleanNullableText(input.holderName)),
+        cfeServiceAddress: Value(_cleanNullableText(input.serviceAddress)),
+        rpu: Value(_cleanNullableText(input.rpu)),
+        cfeTariff: Value(_cleanNullableText(input.tariff)),
+        cfeBillingPeriod: Value(_cleanNullableText(input.billingPeriod)),
+        cfeCurrentPeriodKwh: Value(input.currentPeriodKwh),
+        cfeTotalToPay: Value(input.totalToPay),
+        updatedAt: Value(now),
+      ),
+    );
   }
 
   Future<List<quotation_entity.QuotationDraft>> getAllActive() async {
@@ -78,6 +209,10 @@ class QuotationDraftRepository {
       cfeHolderName: row.cfeHolderName,
       cfeServiceAddress: row.cfeServiceAddress,
       rpu: row.rpu,
+      cfeTariff: row.cfeTariff,
+      cfeBillingPeriod: row.cfeBillingPeriod,
+      cfeCurrentPeriodKwh: row.cfeCurrentPeriodKwh,
+      cfeTotalToPay: row.cfeTotalToPay,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );

@@ -133,7 +133,8 @@ class CotizacionScreen extends ConsumerWidget {
               ),
               error: (error, stackTrace) => _DraftsErrorView(
                 message: error.toString(),
-                onRetry: () => ref.invalidate(quotationDraftsControllerProvider),
+                onRetry: () =>
+                    ref.invalidate(quotationDraftsControllerProvider),
               ),
               data: (drafts) {
                 if (drafts.isEmpty) {
@@ -164,6 +165,16 @@ class CotizacionScreen extends ConsumerWidget {
                         ),
                       ),
                     );
+
+                    if (draft.status == QuotationDraftStatus.receiptPending) {
+                      context.push(AppRoutes.reciboCfe);
+                      return;
+                    }
+
+                    if (draft.status == QuotationDraftStatus.receiptReceived) {
+                      context.push(AppRoutes.reciboCfeRevision);
+                      return;
+                    }
                   },
                 );
               },
@@ -179,7 +190,8 @@ class CotizacionScreen extends ConsumerWidget {
               children: [
                 _InfoRow(
                   icon: Icons.check_circle_outline,
-                  text: 'Clientes formales se mantienen separados de prospectos.',
+                  text:
+                      'Clientes formales se mantienen separados de prospectos.',
                 ),
                 SizedBox(height: 10),
                 _InfoRow(

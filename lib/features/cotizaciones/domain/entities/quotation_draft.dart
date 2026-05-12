@@ -28,6 +28,10 @@ class QuotationDraft {
     this.cfeHolderName,
     this.cfeServiceAddress,
     this.rpu,
+    this.cfeTariff,
+    this.cfeBillingPeriod,
+    this.cfeCurrentPeriodKwh,
+    this.cfeTotalToPay,
   });
 
   final String id;
@@ -47,6 +51,10 @@ class QuotationDraft {
   final String? cfeHolderName;
   final String? cfeServiceAddress;
   final String? rpu;
+  final String? cfeTariff;
+  final String? cfeBillingPeriod;
+  final double? cfeCurrentPeriodKwh;
+  final double? cfeTotalToPay;
 
   final DateTime createdAt;
   final DateTime updatedAt;
