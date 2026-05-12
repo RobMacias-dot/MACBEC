@@ -147,14 +147,14 @@ class _ReciboCfeRevisionScreenState
                         textInputAction: TextInputAction.done,
                         textCapitalization: TextCapitalization.characters,
                         decoration: const InputDecoration(
-                          labelText: 'RPU',
+                          labelText: 'RMU / RPU / Número de servicio CFE',
                           helperText:
-                              'Registro Permanente de Usuario del recibo CFE.',
+                              'Identificador del servicio eléctrico que aparece en el recibo CFE.',
                           prefixIcon: Icon(Icons.confirmation_number_outlined),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Captura el RPU del recibo.';
+                            return 'Captura el RMU, RPU o número de servicio del recibo.';
                           }
                           return null;
                         },
