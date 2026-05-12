@@ -139,8 +139,10 @@ class Panels extends Table with LocalFirstColumns {
   TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
   DateTimeColumn get lastPriceUpdateAt => dateTime().nullable()();
   TextColumn get priceSource => text().nullable()();
-  BoolColumn get isPriceLocked => boolean().withDefault(const Constant(false))();
-  BoolColumn get requiresPriceReview => boolean().withDefault(const Constant(false))();
+  BoolColumn get isPriceLocked =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get requiresPriceReview =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -159,8 +161,10 @@ class Inverters extends Table with LocalFirstColumns {
   TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
   DateTimeColumn get lastPriceUpdateAt => dateTime().nullable()();
   TextColumn get priceSource => text().nullable()();
-  BoolColumn get isPriceLocked => boolean().withDefault(const Constant(false))();
-  BoolColumn get requiresPriceReview => boolean().withDefault(const Constant(false))();
+  BoolColumn get isPriceLocked =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get requiresPriceReview =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -217,7 +221,8 @@ class CfeReceipts extends Table with LocalFirstColumns {
   TextColumn get billingPeriod => text().nullable()();
   RealColumn get currentPeriodKwh => real().nullable()();
   RealColumn get totalToPay => real().nullable()();
-  TextColumn get originalDocumentId => text().nullable().references(Documents, #id)();
+  TextColumn get originalDocumentId =>
+      text().nullable().references(Documents, #id)();
   BoolColumn get isValidated => boolean().withDefault(const Constant(false))();
 
   @override
@@ -260,7 +265,8 @@ class Quotations extends Table with LocalFirstColumns {
   RealColumn get ivaRate => real().withDefault(const Constant(0.16))();
   RealColumn get generalUtilityRate => real().nullable()();
   RealColumn get discountAmount => real().withDefault(const Constant(0))();
-  RealColumn get advancePaymentAmount => real().withDefault(const Constant(0))();
+  RealColumn get advancePaymentAmount =>
+      real().withDefault(const Constant(0))();
   RealColumn get subtotal => real().withDefault(const Constant(0))();
   RealColumn get ivaAmount => real().withDefault(const Constant(0))();
   RealColumn get total => real().withDefault(const Constant(0))();
@@ -293,7 +299,8 @@ class CompanySettings extends Table with LocalFirstColumns {
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get address => text().nullable()();
-  TextColumn get logoDocumentId => text().nullable().references(Documents, #id)();
+  TextColumn get logoDocumentId =>
+      text().nullable().references(Documents, #id)();
 
   @override
   Set<Column> get primaryKey => {id};

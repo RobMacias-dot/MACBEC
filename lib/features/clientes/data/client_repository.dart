@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart';
+
 import '../../../data/local/database/app_database.dart';
 import '../domain/entities/client.dart' as client_entity;
 
@@ -7,7 +9,12 @@ class ClientRepository {
   final AppDatabase _database;
 
   Future<List<client_entity.Client>> getAll() async {
-    final rows = await _database.select(_database.clients).get();
+    final query = _database.select(_database.clients)
+      ..where((client) => client.isDeleted.equals(false))
+      ..orderBy([(client) => OrderingTerm.asc(client.fullName)]);
+
+    final rows = await query.get();
+
     return rows
         .map(
           (row) => client_entity.Client(

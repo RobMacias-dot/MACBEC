@@ -14,6 +14,7 @@ import '../../features/clientes/presentation/screens/clientes_screen.dart';
 import '../../features/configuracion/presentation/screens/configuracion_screen.dart';
 import '../../features/cotizaciones/presentation/screens/cotizacion_cliente_preview_screen.dart';
 import '../../features/cotizaciones/presentation/screens/cotizacion_interna_screen.dart';
+import '../../features/cotizaciones/presentation/screens/cotizacion_prospecto_form_screen.dart';
 import '../../features/cotizaciones/presentation/screens/cotizacion_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/expediente/presentation/screens/expediente_screen.dart';
@@ -95,6 +96,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.cotizacion,
         builder: (context, state) => const CotizacionScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.cotizacionProspectoForm,
+        builder: (context, state) => const CotizacionProspectoFormScreen(),
       ),
       GoRoute(
         path: AppRoutes.cotizacionInterna,

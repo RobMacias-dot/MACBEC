@@ -15,34 +15,25 @@ class DashboardScreen extends StatelessWidget {
       child: ListView(
         children: [
           SectionCard(
-            title: 'Flujo MVP',
-            subtitle: 'Cliente → Proyecto → Recibo CFE → Análisis → Cotización → Expediente',
+            title: 'Flujo comercial',
+            subtitle:
+                'Cotización provisional → Recibo CFE → Análisis → PDF → Aprobación → Cliente/Expediente',
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
+                _DashboardButton(
+                  label: 'Nueva cotización',
+                  icon: Icons.request_quote_outlined,
+                  onTap: () => context.go(AppRoutes.cotizacion),
+                ),
                 _DashboardButton(
                   label: 'Clientes',
                   icon: Icons.people_outline,
                   onTap: () => context.go(AppRoutes.clientes),
                 ),
                 _DashboardButton(
-                  label: 'Recibo CFE',
-                  icon: Icons.receipt_long_outlined,
-                  onTap: () => context.go(AppRoutes.reciboCfe),
-                ),
-                _DashboardButton(
-                  label: 'Análisis',
-                  icon: Icons.analytics_outlined,
-                  onTap: () => context.go(AppRoutes.analisisConsumo),
-                ),
-                _DashboardButton(
-                  label: 'Cotización',
-                  icon: Icons.request_quote_outlined,
-                  onTap: () => context.go(AppRoutes.cotizacion),
-                ),
-                _DashboardButton(
-                  label: 'Expediente',
+                  label: 'Expedientes',
                   icon: Icons.folder_outlined,
                   onTap: () => context.go(AppRoutes.expediente),
                 ),
@@ -84,9 +75,16 @@ class _DashboardButton extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 34, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  icon,
+                  size: 34,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(height: 10),
-                Text(label, textAlign: TextAlign.center),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),

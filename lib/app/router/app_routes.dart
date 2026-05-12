@@ -18,6 +18,7 @@ class AppRoutes {
   static const catalogoInversores = '/catalogo/inversores';
   static const proveedores = '/proveedores';
   static const cotizacion = '/cotizacion';
+  static const cotizacionProspectoForm = '/cotizacion/prospecto-form';
   static const cotizacionInterna = '/cotizacion/interna';
   static const cotizacionClientePreview = '/cotizacion/cliente-preview';
   static const expediente = '/expediente';
