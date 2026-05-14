@@ -145,6 +145,18 @@ class QuotationDrafts extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+class QuotationDraftConsumptions extends Table with LocalFirstColumns {
+  TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
+
+  TextColumn get periodLabel => text().nullable()();
+  RealColumn get kwh => real()();
+  RealColumn get amount => real().nullable()();
+  IntColumn get sortOrder => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class Suppliers extends Table with LocalFirstColumns {
   TextColumn get name => text()();
   TextColumn get contactName => text().nullable()();
@@ -380,6 +392,7 @@ class SyncQueue extends Table with LocalFirstColumns {
     ProjectStatusHistory,
     Documents,
     QuotationDrafts,
+    QuotationDraftConsumptions,
     Suppliers,
     Panels,
     Inverters,
@@ -401,7 +414,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -414,14 +427,28 @@ class AppDatabase extends _$AppDatabase {
           }
 
           if (from < 3) {
-            await m.addColumn(quotationDrafts, quotationDrafts.cfeTariff);
             await m.addColumn(
-                quotationDrafts, quotationDrafts.cfeBillingPeriod);
+              quotationDrafts,
+              quotationDrafts.cfeTariff,
+            );
+            await m.addColumn(
+              quotationDrafts,
+              quotationDrafts.cfeBillingPeriod,
+            );
             await m.addColumn(
               quotationDrafts,
               quotationDrafts.cfeCurrentPeriodKwh,
             );
-            await m.addColumn(quotationDrafts, quotationDrafts.cfeTotalToPay);
+            await m.addColumn(
+              quotationDrafts,
+              quotationDrafts.cfeTotalToPay,
+            );
+          }
+
+          if (from < 4) {
+            await m.createTable(
+              quotationDraftConsumptions,
+            );
           }
         },
       );

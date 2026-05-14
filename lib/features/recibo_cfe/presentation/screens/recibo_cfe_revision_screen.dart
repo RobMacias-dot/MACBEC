@@ -25,6 +25,10 @@ class _ReciboCfeRevisionScreenState
   final _holderNameController = TextEditingController();
   final _serviceAddressController = TextEditingController();
   final _rpuController = TextEditingController();
+  final _tariffController = TextEditingController();
+  final _billingPeriodController = TextEditingController();
+  final _currentPeriodKwhController = TextEditingController();
+  final _totalToPayController = TextEditingController();
 
   bool _isSaving = false;
   String? _prefilledDraftId;
@@ -34,6 +38,10 @@ class _ReciboCfeRevisionScreenState
     _holderNameController.dispose();
     _serviceAddressController.dispose();
     _rpuController.dispose();
+    _tariffController.dispose();
+    _billingPeriodController.dispose();
+    _currentPeriodKwhController.dispose();
+    _totalToPayController.dispose();
     super.dispose();
   }
 
@@ -115,12 +123,10 @@ class _ReciboCfeRevisionScreenState
                               'Puede ser diferente al prospecto o cliente.',
                           prefixIcon: Icon(Icons.person_outline),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Captura el titular del servicio CFE.';
-                          }
-                          return null;
-                        },
+                        validator: (value) => _requiredTextValidator(
+                          value,
+                          'Captura el titular del servicio CFE.',
+                        ),
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
@@ -134,17 +140,15 @@ class _ReciboCfeRevisionScreenState
                               'Dirección donde está contratado el servicio eléctrico.',
                           prefixIcon: Icon(Icons.location_on_outlined),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Captura la dirección del servicio.';
-                          }
-                          return null;
-                        },
+                        validator: (value) => _requiredTextValidator(
+                          value,
+                          'Captura la dirección del servicio.',
+                        ),
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _rpuController,
-                        textInputAction: TextInputAction.done,
+                        textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.characters,
                         decoration: const InputDecoration(
                           labelText: 'RMU / RPU / Número de servicio CFE',
@@ -152,12 +156,84 @@ class _ReciboCfeRevisionScreenState
                               'Identificador del servicio eléctrico que aparece en el recibo CFE.',
                           prefixIcon: Icon(Icons.confirmation_number_outlined),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Captura el RMU, RPU o número de servicio del recibo.';
-                          }
-                          return null;
-                        },
+                        validator: (value) => _requiredTextValidator(
+                          value,
+                          'Captura el RMU, RPU o número de servicio del recibo.',
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _tariffController,
+                        textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(
+                          labelText: 'Tarifa CFE',
+                          helperText:
+                              'Ejemplo: 1, 1A, 1B, DAC, GDMTO, PDBT.',
+                          prefixIcon: Icon(Icons.bolt_outlined),
+                        ),
+                        validator: (value) => _requiredTextValidator(
+                          value,
+                          'Captura la tarifa del recibo CFE.',
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _billingPeriodController,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Periodo facturado',
+                          helperText:
+                              'Ejemplo: 13 MAR 25 - 14 MAY 25 o Mayo 2025.',
+                          prefixIcon: Icon(Icons.date_range_outlined),
+                        ),
+                        validator: (value) => _requiredTextValidator(
+                          value,
+                          'Captura el periodo facturado.',
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _currentPeriodKwhController,
+                        textInputAction: TextInputAction.next,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Consumo del periodo',
+                          helperText:
+                              'Captura el consumo en kWh que aparece en el recibo.',
+                          suffixText: 'kWh',
+                          prefixIcon: Icon(Icons.electric_meter_outlined),
+                        ),
+                        validator: (value) => _requiredNumberValidator(
+                          value,
+                          emptyMessage:
+                              'Captura el consumo del periodo en kWh.',
+                          invalidMessage:
+                              'Captura un consumo válido. Ejemplo: 385',
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _totalToPayController,
+                        textInputAction: TextInputAction.done,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Total pagado',
+                          helperText:
+                              'Captura el importe total del recibo CFE.',
+                          prefixText: '\$ ',
+                          prefixIcon: Icon(Icons.payments_outlined),
+                        ),
+                        validator: (value) => _requiredNumberValidator(
+                          value,
+                          emptyMessage: 'Captura el total pagado.',
+                          invalidMessage:
+                              'Captura un total válido. Ejemplo: 1250.50',
+                        ),
                       ),
                       const SizedBox(height: 20),
                       SizedBox(
@@ -194,7 +270,7 @@ class _ReciboCfeRevisionScreenState
                 child: _InfoRow(
                   icon: Icons.analytics_outlined,
                   text:
-                      'En la siguiente fase capturaremos consumos, periodo, tarifa y total pagado para alimentar el análisis.',
+                      'En la siguiente fase usaremos el consumo capturado para preparar el cálculo energético de la cotización.',
                 ),
               ),
             ],
@@ -223,12 +299,31 @@ class _ReciboCfeRevisionScreenState
     _holderNameController.text = draft.cfeHolderName ?? '';
     _serviceAddressController.text = draft.cfeServiceAddress ?? '';
     _rpuController.text = draft.rpu ?? '';
+    _tariffController.text = draft.cfeTariff ?? '';
+    _billingPeriodController.text = draft.cfeBillingPeriod ?? '';
+    _currentPeriodKwhController.text =
+        _formatNullableNumber(draft.cfeCurrentPeriodKwh);
+    _totalToPayController.text = _formatNullableNumber(draft.cfeTotalToPay);
 
     _prefilledDraftId = draft.id;
   }
 
   Future<void> _saveReview(String activeDraftId) async {
     if (!_formKey.currentState!.validate()) return;
+
+    final currentPeriodKwh = _parseFlexibleDouble(
+      _currentPeriodKwhController.text,
+    );
+    final totalToPay = _parseFlexibleDouble(_totalToPayController.text);
+
+    if (currentPeriodKwh == null || totalToPay == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Revisa los importes capturados antes de continuar.'),
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isSaving = true;
@@ -241,6 +336,10 @@ class _ReciboCfeRevisionScreenState
               holderName: _holderNameController.text,
               serviceAddress: _serviceAddressController.text,
               rpu: _rpuController.text,
+              tariff: _tariffController.text,
+              billingPeriod: _billingPeriodController.text,
+              currentPeriodKwh: currentPeriodKwh,
+              totalToPay: totalToPay,
             ),
           );
 
@@ -270,6 +369,67 @@ class _ReciboCfeRevisionScreenState
         });
       }
     }
+  }
+
+  String? _requiredTextValidator(String? value, String message) {
+    if (value == null || value.trim().isEmpty) {
+      return message;
+    }
+
+    return null;
+  }
+
+  String? _requiredNumberValidator(
+    String? value, {
+    required String emptyMessage,
+    required String invalidMessage,
+  }) {
+    if (value == null || value.trim().isEmpty) {
+      return emptyMessage;
+    }
+
+    final parsedValue = _parseFlexibleDouble(value);
+
+    if (parsedValue == null || parsedValue <= 0) {
+      return invalidMessage;
+    }
+
+    return null;
+  }
+
+  double? _parseFlexibleDouble(String value) {
+    var cleanValue = value.trim();
+
+    if (cleanValue.isEmpty) return null;
+
+    cleanValue = cleanValue.replaceAll(RegExp(r'[\$\s]'), '');
+
+    if (cleanValue.contains(',') && cleanValue.contains('.')) {
+      cleanValue = cleanValue.replaceAll(',', '');
+    } else if (cleanValue.contains(',')) {
+      final parts = cleanValue.split(',');
+
+      if (parts.length == 2 &&
+          parts.first.isNotEmpty &&
+          parts.first.length <= 3 &&
+          parts.last.length == 3) {
+        cleanValue = '${parts.first}${parts.last}';
+      } else {
+        cleanValue = cleanValue.replaceAll(',', '.');
+      }
+    }
+
+    return double.tryParse(cleanValue);
+  }
+
+  String _formatNullableNumber(double? value) {
+    if (value == null) return '';
+
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(2);
   }
 }
 
