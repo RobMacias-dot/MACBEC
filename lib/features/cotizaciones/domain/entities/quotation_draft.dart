@@ -32,6 +32,8 @@ class QuotationDraft {
     this.cfeBillingPeriod,
     this.cfeCurrentPeriodKwh,
     this.cfeTotalToPay,
+    this.analysisPeakSunHours,
+    this.analysisPanelPowerWatts,
   });
 
   final String id;
@@ -56,6 +58,9 @@ class QuotationDraft {
   final double? cfeCurrentPeriodKwh;
   final double? cfeTotalToPay;
 
+  final double? analysisPeakSunHours;
+  final double? analysisPanelPowerWatts;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -66,4 +71,30 @@ class QuotationDraft {
   bool get hasEmail => email != null && email!.trim().isNotEmpty;
   bool get hasAddress => address != null && address!.trim().isNotEmpty;
   bool get hasNotes => notes != null && notes!.trim().isNotEmpty;
+
+  bool get hasCompleteCfeReview {
+    return hasCfeReceipt &&
+        cfeReceiptDocumentId != null &&
+        cfeHolderName != null &&
+        cfeHolderName!.trim().isNotEmpty &&
+        cfeServiceAddress != null &&
+        cfeServiceAddress!.trim().isNotEmpty &&
+        rpu != null &&
+        rpu!.trim().isNotEmpty &&
+        cfeTariff != null &&
+        cfeTariff!.trim().isNotEmpty &&
+        cfeBillingPeriod != null &&
+        cfeBillingPeriod!.trim().isNotEmpty &&
+        cfeCurrentPeriodKwh != null &&
+        cfeCurrentPeriodKwh! > 0 &&
+        cfeTotalToPay != null &&
+        cfeTotalToPay! > 0;
+  }
+
+  bool get hasEnergyAnalysisSettings {
+    return analysisPeakSunHours != null &&
+        analysisPeakSunHours! > 0 &&
+        analysisPanelPowerWatts != null &&
+        analysisPanelPowerWatts! > 0;
+  }
 }

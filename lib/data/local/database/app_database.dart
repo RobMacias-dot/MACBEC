@@ -141,6 +141,9 @@ class QuotationDrafts extends Table with LocalFirstColumns {
   RealColumn get cfeCurrentPeriodKwh => real().nullable()();
   RealColumn get cfeTotalToPay => real().nullable()();
 
+  RealColumn get analysisPeakSunHours => real().nullable()();
+  RealColumn get analysisPanelPowerWatts => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -152,6 +155,24 @@ class QuotationDraftConsumptions extends Table with LocalFirstColumns {
   RealColumn get kwh => real()();
   RealColumn get amount => real().nullable()();
   IntColumn get sortOrder => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class QuotationDraftPvCalculations extends Table with LocalFirstColumns {
+  TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
+  TextColumn get panelId => text().nullable().references(Panels, #id)();
+
+  RealColumn get annualConsumptionKwh => real()();
+  RealColumn get dailyConsumptionKwh => real()();
+  RealColumn get peakSunHours => real()();
+  RealColumn get panelPowerWatts => real()();
+  RealColumn get lossFactor => real().withDefault(const Constant(0.80))();
+  RealColumn get generationPerPanelKwhDay => real()();
+  IntColumn get requiredPanels => integer()();
+
+  TextColumn get calculationSnapshotJson => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -173,19 +194,29 @@ class Panels extends Table with LocalFirstColumns {
   TextColumn get brand => text()();
   TextColumn get model => text()();
   RealColumn get powerWatts => real()();
+
   RealColumn get voc => real().nullable()();
   RealColumn get isc => real().nullable()();
   RealColumn get vmp => real().nullable()();
   RealColumn get imp => real().nullable()();
   RealColumn get efficiency => real().nullable()();
+
+  RealColumn get lengthMm => real().nullable()();
+  RealColumn get widthMm => real().nullable()();
+  RealColumn get thicknessMm => real().nullable()();
+
   RealColumn get purchasePrice => real().nullable()();
+
   TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
   DateTimeColumn get lastPriceUpdateAt => dateTime().nullable()();
   TextColumn get priceSource => text().nullable()();
+
   BoolColumn get isPriceLocked =>
       boolean().withDefault(const Constant(false))();
   BoolColumn get requiresPriceReview =>
       boolean().withDefault(const Constant(false))();
+
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -393,6 +424,7 @@ class SyncQueue extends Table with LocalFirstColumns {
     Documents,
     QuotationDrafts,
     QuotationDraftConsumptions,
+    QuotationDraftPvCalculations,
     Suppliers,
     Panels,
     Inverters,
@@ -414,7 +446,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -448,6 +480,40 @@ class AppDatabase extends _$AppDatabase {
           if (from < 4) {
             await m.createTable(
               quotationDraftConsumptions,
+            );
+          }
+
+          if (from < 5) {
+            await m.addColumn(
+              quotationDrafts,
+              quotationDrafts.analysisPeakSunHours,
+            );
+            await m.addColumn(
+              quotationDrafts,
+              quotationDrafts.analysisPanelPowerWatts,
+            );
+          }
+          if (from < 6) {
+            await m.createTable(
+              quotationDraftPvCalculations,
+            );
+          }
+          if (from < 7) {
+            await m.addColumn(
+              panels,
+              panels.lengthMm,
+            );
+            await m.addColumn(
+              panels,
+              panels.widthMm,
+            );
+            await m.addColumn(
+              panels,
+              panels.thicknessMm,
+            );
+            await m.addColumn(
+              panels,
+              panels.isActive,
             );
           }
         },

@@ -31,6 +31,7 @@ class _ReciboCfeRevisionScreenState
   final _totalToPayController = TextEditingController();
 
   bool _isSaving = false;
+  bool _isEditing = true;
   String? _prefilledDraftId;
 
   @override
@@ -97,6 +98,9 @@ class _ReciboCfeRevisionScreenState
 
           _prefillFormIfNeeded(draft);
 
+          final hasSavedReview = draft.hasCompleteCfeReview;
+          final fieldsEnabled = _isEditing && !_isSaving;
+
           return ListView(
             children: [
               SectionCard(
@@ -108,13 +112,29 @@ class _ReciboCfeRevisionScreenState
               const SizedBox(height: 16),
               SectionCard(
                 title: 'Datos del recibo CFE',
-                subtitle:
-                    'Captura manualmente los datos principales. En esta fase todavía no usamos OCR.',
+                subtitle: hasSavedReview && !_isEditing
+                    ? 'Estos datos ya fueron guardados. Para modificarlos, primero activa la edición.'
+                    : 'Captura manualmente los datos principales. En esta fase todavía no usamos OCR.',
                 child: Form(
                   key: _formKey,
                   child: Column(
                     children: [
+                      if (hasSavedReview) ...[
+                        _SavedReviewNotice(
+                          isEditing: _isEditing,
+                          onEdit: () {
+                            setState(() {
+                              _isEditing = true;
+                            });
+                          },
+                          onContinue: () {
+                            context.push(AppRoutes.analisisConsumo);
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       TextFormField(
+                        enabled: fieldsEnabled,
                         controller: _holderNameController,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
@@ -130,6 +150,7 @@ class _ReciboCfeRevisionScreenState
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
+                        enabled: fieldsEnabled,
                         controller: _serviceAddressController,
                         textInputAction: TextInputAction.next,
                         minLines: 2,
@@ -147,6 +168,7 @@ class _ReciboCfeRevisionScreenState
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
+                        enabled: fieldsEnabled,
                         controller: _rpuController,
                         textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.characters,
@@ -163,6 +185,7 @@ class _ReciboCfeRevisionScreenState
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
+                        enabled: fieldsEnabled,
                         controller: _tariffController,
                         textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.characters,
@@ -179,6 +202,7 @@ class _ReciboCfeRevisionScreenState
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
+                        enabled: fieldsEnabled,
                         controller: _billingPeriodController,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
@@ -194,6 +218,7 @@ class _ReciboCfeRevisionScreenState
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
+                        enabled: fieldsEnabled,
                         controller: _currentPeriodKwhController,
                         textInputAction: TextInputAction.next,
                         keyboardType: const TextInputType.numberWithOptions(
@@ -216,6 +241,7 @@ class _ReciboCfeRevisionScreenState
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
+                        enabled: fieldsEnabled,
                         controller: _totalToPayController,
                         textInputAction: TextInputAction.done,
                         keyboardType: const TextInputType.numberWithOptions(
@@ -236,28 +262,61 @@ class _ReciboCfeRevisionScreenState
                         ),
                       ),
                       const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _isSaving
-                              ? null
-                              : () => _saveReview(activeDraftId),
-                          icon: _isSaving
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.save_outlined),
-                          label: Text(
-                            _isSaving
-                                ? 'Guardando...'
-                                : 'Guardar y continuar',
+                      if (_isEditing)
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _isSaving
+                                ? null
+                                : () => _saveReview(activeDraftId),
+                            icon: _isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_outlined),
+                            label: Text(
+                              _isSaving
+                                  ? 'Guardando...'
+                                  : hasSavedReview
+                                      ? 'Guardar cambios y continuar'
+                                      : 'Guardar y continuar',
+                            ),
                           ),
+                        )
+                      else
+                        Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _isEditing = true;
+                                  });
+                                },
+                                icon: const Icon(Icons.edit_outlined),
+                                label: const Text('Editar datos CFE'),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  context.push(AppRoutes.analisisConsumo);
+                                },
+                                icon: const Icon(Icons.arrow_forward_outlined),
+                                label: const Text(
+                                  'Continuar a análisis energético',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -270,7 +329,7 @@ class _ReciboCfeRevisionScreenState
                 child: _InfoRow(
                   icon: Icons.analytics_outlined,
                   text:
-                      'En la siguiente fase usaremos el consumo capturado para preparar el cálculo energético de la cotización.',
+                      'Usaremos el consumo capturado para preparar el cálculo energético de la cotización.',
                 ),
               ),
             ],
@@ -305,6 +364,7 @@ class _ReciboCfeRevisionScreenState
         _formatNullableNumber(draft.cfeCurrentPeriodKwh);
     _totalToPayController.text = _formatNullableNumber(draft.cfeTotalToPay);
 
+    _isEditing = !draft.hasCompleteCfeReview;
     _prefilledDraftId = draft.id;
   }
 
@@ -430,6 +490,59 @@ class _ReciboCfeRevisionScreenState
     }
 
     return value.toStringAsFixed(2);
+  }
+}
+
+class _SavedReviewNotice extends StatelessWidget {
+  const _SavedReviewNotice({
+    required this.isEditing,
+    required this.onEdit,
+    required this.onContinue,
+  });
+
+  final bool isEditing;
+  final VoidCallback onEdit;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isEditing
+            ? theme.colorScheme.tertiaryContainer.withValues(alpha: 0.45)
+            : theme.colorScheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isEditing
+              ? theme.colorScheme.tertiary.withValues(alpha: 0.25)
+              : theme.colorScheme.primary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isEditing ? Icons.edit_note_outlined : Icons.lock_outline,
+            color: isEditing
+                ? theme.colorScheme.tertiary
+                : theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              isEditing
+                  ? 'Modo edición activo. Revisa los cambios antes de guardar.'
+                  : 'Revisión CFE guardada. Los datos están bloqueados para evitar cambios accidentales.',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

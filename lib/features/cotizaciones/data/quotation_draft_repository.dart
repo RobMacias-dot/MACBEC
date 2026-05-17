@@ -165,10 +165,18 @@ class QuotationDraftRepository {
       );
     }
 
+        var nextStatus = draft.status;
+
+        if (draft.status == quotation_entity.QuotationDraftStatus.receiptPending ||
+            draft.status == quotation_entity.QuotationDraftStatus.receiptReceived) {
+          nextStatus = quotation_entity.QuotationDraftStatus.inAnalysis;
+        }
+
     await (_database.update(_database.quotationDrafts)
           ..where((table) => table.id.equals(input.draftId)))
         .write(
       QuotationDraftsCompanion(
+        status: Value(nextStatus),
         cfeHolderName: Value(_cleanNullableText(input.holderName)),
         cfeServiceAddress: Value(_cleanNullableText(input.serviceAddress)),
         rpu: Value(_cleanNullableText(input.rpu)),
@@ -213,6 +221,8 @@ class QuotationDraftRepository {
       cfeBillingPeriod: row.cfeBillingPeriod,
       cfeCurrentPeriodKwh: row.cfeCurrentPeriodKwh,
       cfeTotalToPay: row.cfeTotalToPay,
+      analysisPeakSunHours: row.analysisPeakSunHours,
+      analysisPanelPowerWatts: row.analysisPanelPowerWatts,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );

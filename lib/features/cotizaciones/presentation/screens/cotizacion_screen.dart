@@ -166,15 +166,7 @@ class CotizacionScreen extends ConsumerWidget {
                       ),
                     );
 
-                    if (draft.status == QuotationDraftStatus.receiptPending) {
-                      context.push(AppRoutes.reciboCfe);
-                      return;
-                    }
-
-                    if (draft.status == QuotationDraftStatus.receiptReceived) {
-                      context.push(AppRoutes.reciboCfeRevision);
-                      return;
-                    }
+                    context.push(_nextRouteForDraft(draft));
                   },
                 );
               },
@@ -211,6 +203,31 @@ class CotizacionScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _nextRouteForDraft(QuotationDraft draft) {
+    if (!draft.hasCfeReceipt ||
+        draft.status == QuotationDraftStatus.receiptPending) {
+      return AppRoutes.reciboCfe;
+    }
+
+    if (!draft.hasCompleteCfeReview) {
+      return AppRoutes.reciboCfeRevision;
+    }
+
+    switch (draft.status) {
+      case QuotationDraftStatus.quotationInProgress:
+        return AppRoutes.cotizacionInterna;
+      case QuotationDraftStatus.quotationSent:
+      case QuotationDraftStatus.accepted:
+        return AppRoutes.cotizacionClientePreview;
+      case QuotationDraftStatus.cancelled:
+        return AppRoutes.cotizacion;
+      case QuotationDraftStatus.inAnalysis:
+      case QuotationDraftStatus.receiptReceived:
+      default:
+        return AppRoutes.analisisConsumo;
+    }
   }
 }
 

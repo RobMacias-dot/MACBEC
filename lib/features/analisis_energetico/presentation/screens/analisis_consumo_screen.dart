@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../shared/components/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
@@ -10,6 +12,7 @@ import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../application/energy_analysis_controller.dart';
 import '../../domain/entities/quotation_draft_consumption.dart';
+import '../../domain/entities/quotation_draft_pv_calculation.dart';
 
 class AnalisisConsumoScreen extends ConsumerStatefulWidget {
   const AnalisisConsumoScreen({super.key});
@@ -65,6 +68,9 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
     final consumptionsAsync =
         ref.watch(quotationDraftConsumptionsProvider(activeDraftId));
 
+    final pvCalculationAsync =
+        ref.watch(quotationDraftPvCalculationProvider(activeDraftId));
+
     return AppScaffold(
       title: 'Análisis energético',
       child: draftsAsync.when(
@@ -98,9 +104,24 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
               icon: Icons.error_outline,
             ),
             data: (savedConsumptions) {
-              _prefillFormIfNeeded(draft, savedConsumptions);
+              return pvCalculationAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+                error: (error, stackTrace) => EmptyState(
+                  title: 'No se pudo cargar el cálculo guardado',
+                  message: error.toString(),
+                  icon: Icons.error_outline,
+                ),
+                data: (savedPvCalculation) {
+                  _prefillFormIfNeeded(
+                    draft,
+                    savedConsumptions,
+                    savedPvCalculation,
+                  );
 
-              return ListView(
+                  return ListView(
+
                 children: [
                   SectionCard(
                     title: 'Prospecto activo',
@@ -113,9 +134,9 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                   ),
                   const SizedBox(height: 16),
                   SectionCard(
-                    title: 'Consumos del recibo CFE',
+                    title: 'Análisis energético',
                     subtitle:
-                        'Captura hasta 6 periodos bimestrales. Estos consumos quedarán guardados localmente para reutilizarlos en la cotización.',
+                        'Captura consumos, horas solares pico y potencia del panel. El cálculo quedará guardado para continuar la cotización sin repetir pasos.',
                     child: Form(
                       key: _formKey,
                       child: Column(
@@ -209,7 +230,7 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                             child: FilledButton.icon(
                               onPressed: _calculate,
                               icon: const Icon(Icons.calculate_outlined),
-                              label: const Text('Calcular sistema inicial'),
+                              label: const Text('Actualizar cálculo preliminar'),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -230,8 +251,8 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                                   : const Icon(Icons.save_outlined),
                               label: Text(
                                 _isSaving
-                                    ? 'Guardando consumos...'
-                                    : 'Guardar consumos históricos',
+                                    ? 'Guardando análisis...'
+                                    : 'Guardar análisis históricos',
                               ),
                             ),
                           ),
@@ -248,18 +269,49 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                       child: _CalculationResultView(result: _result!),
                     ),
                   ],
+                  if (savedPvCalculation != null) ...[
+                    const SizedBox(height: 16),
+                    SectionCard(
+                      title: 'Siguiente etapa',
+                      subtitle:
+                          'El análisis energético ya está guardado. Ahora puedes avanzar al catálogo mínimo de paneles.',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _InfoRow(
+                            icon: Icons.solar_power_outlined,
+                            text:
+                                'En la siguiente fase se registrarán paneles reales con marca, modelo, potencia, Voc, Isc, dimensiones y precio de compra.',
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                context.push(AppRoutes.catalogoPaneles);
+                              },
+                              icon: const Icon(Icons.arrow_forward_outlined),
+                              label: const Text('Continuar a catálogo de paneles'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   const SectionCard(
-                    title: 'Nota de esta fase',
+                    title: 'Análisis guardado',
                     subtitle:
-                        'El cálculo visual todavía se guarda después. En este paso ya persistimos los consumos históricos.',
+                        'El resultado fotovoltaico ya queda persistido localmente para continuar con las siguientes etapas.',
                     child: _InfoRow(
                       icon: Icons.info_outline,
                       text:
-                          'En la siguiente fase guardaremos también el resultado del cálculo: consumo anual, consumo diario, generación por panel y paneles estimados.',
+                          'Ahora la app puede reutilizar consumo anual, consumo diario, generación por panel y paneles estimados sin recalcular desde cero.',
                     ),
                   ),
                 ],
+              );
+                },
               );
             },
           );
@@ -284,6 +336,7 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
   void _prefillFormIfNeeded(
     QuotationDraft draft,
     List<QuotationDraftConsumption> savedConsumptions,
+    QuotationDraftPvCalculation? savedPvCalculation,
   ) {
     if (_prefilledDraftId == draft.id) return;
 
@@ -303,6 +356,34 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
     } else if (draft.cfeCurrentPeriodKwh != null) {
       _consumptionControllers.first.text =
           _formatNullableNumber(draft.cfeCurrentPeriodKwh);
+    }
+
+    _peakSunHoursController.text = _formatNullableNumber(
+      savedPvCalculation?.peakSunHours ??
+          draft.analysisPeakSunHours ??
+          5.0,
+    );
+
+    _panelPowerController.text = _formatNullableNumber(
+      savedPvCalculation?.panelPowerWatts ??
+          draft.analysisPanelPowerWatts ??
+          550,
+    );
+
+    if (savedPvCalculation != null) {
+      _result = _CalculationResult(
+        consumptions: savedConsumptions
+            .map((consumption) => consumption.kwh)
+            .toList(),
+        annualConsumptionKwh: savedPvCalculation.annualConsumptionKwh,
+        dailyConsumptionKwh: savedPvCalculation.dailyConsumptionKwh,
+        peakSunHours: savedPvCalculation.peakSunHours,
+        panelPowerWatts: savedPvCalculation.panelPowerWatts,
+        lossFactor: savedPvCalculation.lossFactor,
+        generationPerPanelKwhDay:
+            savedPvCalculation.generationPerPanelKwhDay,
+        requiredPanels: savedPvCalculation.requiredPanels,
+      );
     }
 
     _prefilledDraftId = draft.id;
@@ -331,8 +412,8 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
     _calculate();
   }
 
-  void _calculate() {
-    if (!_formKey.currentState!.validate()) return;
+  _CalculationResult? _buildCalculationResultFromForm() {
+    if (!_formKey.currentState!.validate()) return null;
 
     final consumptions = _consumptionControllers
         .map((controller) => _parseFlexibleDouble(controller.text) ?? 0)
@@ -358,7 +439,7 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
           ),
         ),
       );
-      return;
+      return null;
     }
 
     final dailyConsumptionKwh = annualConsumptionKwh / 365;
@@ -369,17 +450,25 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
         ? 0
         : max(1, (dailyConsumptionKwh / generationPerPanelKwhDay).ceil());
 
+    return _CalculationResult(
+      consumptions: consumptions,
+      annualConsumptionKwh: annualConsumptionKwh,
+      dailyConsumptionKwh: dailyConsumptionKwh,
+      peakSunHours: peakSunHours,
+      panelPowerWatts: panelPowerWatts,
+      lossFactor: _lossFactor,
+      generationPerPanelKwhDay: generationPerPanelKwhDay,
+      requiredPanels: requiredPanels,
+    );
+  }
+
+  void _calculate() {
+    final result = _buildCalculationResultFromForm();
+
+    if (result == null) return;
+
     setState(() {
-      _result = _CalculationResult(
-        consumptions: consumptions,
-        annualConsumptionKwh: annualConsumptionKwh,
-        dailyConsumptionKwh: dailyConsumptionKwh,
-        peakSunHours: peakSunHours,
-        panelPowerWatts: panelPowerWatts,
-        lossFactor: _lossFactor,
-        generationPerPanelKwhDay: generationPerPanelKwhDay,
-        requiredPanels: requiredPanels,
-      );
+      _result = result;
     });
   }
 
@@ -406,30 +495,81 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Captura al menos un consumo válido antes de guardar.',
+            'Captura al menos un consumo válido antes de guardar el análisis.',
           ),
         ),
       );
       return;
     }
 
+    final calculationResult = _buildCalculationResultFromForm();
+
+    if (calculationResult == null) return;
+
+    final peakSunHours = _parseFlexibleDouble(_peakSunHoursController.text);
+    final panelPowerWatts = _parseFlexibleDouble(_panelPowerController.text);
+
+    if (peakSunHours == null ||
+        peakSunHours <= 0 ||
+        panelPowerWatts == null ||
+        panelPowerWatts <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Captura horas solares pico y potencia del panel válidas antes de guardar.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    _calculate();
+
     setState(() {
       _isSaving = true;
     });
 
     try {
-      await ref.read(energyAnalysisRepositoryProvider).replaceDraftConsumptions(
-            quotationDraftId: activeDraftId,
-            consumptions: consumptions,
-          );
+      final repository = ref.read(energyAnalysisRepositoryProvider);
+
+      await repository.replaceDraftConsumptions(
+        quotationDraftId: activeDraftId,
+        consumptions: consumptions,
+      );
+
+      await repository.updateDraftAnalysisSettings(
+        quotationDraftId: activeDraftId,
+        peakSunHours: calculationResult.peakSunHours,
+        panelPowerWatts: calculationResult.panelPowerWatts,
+      );
+
+      await repository.upsertDraftPvCalculation(
+        quotationDraftId: activeDraftId,
+        calculation: SaveQuotationDraftPvCalculationInput(
+          annualConsumptionKwh: calculationResult.annualConsumptionKwh,
+          dailyConsumptionKwh: calculationResult.dailyConsumptionKwh,
+          peakSunHours: calculationResult.peakSunHours,
+          panelPowerWatts: calculationResult.panelPowerWatts,
+          lossFactor: calculationResult.lossFactor,
+          generationPerPanelKwhDay:
+              calculationResult.generationPerPanelKwhDay,
+          requiredPanels: calculationResult.requiredPanels,
+        ),
+      );
+
+      setState(() {
+        _result = calculationResult;
+      });
 
       ref.invalidate(quotationDraftConsumptionsProvider(activeDraftId));
+      ref.invalidate(quotationDraftPvCalculationProvider(activeDraftId));
+      ref.invalidate(quotationDraftsControllerProvider);
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Consumos históricos guardados correctamente.'),
+          content: Text('Análisis energético guardado correctamente.'),
         ),
       );
     } catch (error) {
@@ -598,12 +738,33 @@ class _DraftSummary extends StatelessWidget {
                       avatar: const Icon(Icons.save_outlined),
                       label: Text(
                         savedConsumptionsCount > 0
-                            ? '$savedConsumptionsCount consumos guardados'
-                            : 'Sin consumos guardados',
+                            ? '$savedConsumptionsCount consumos en historial'
+                            : 'Sin historial de consumos',
                       ),
                     ),
+
+                    if (draft.hasEnergyAnalysisSettings)
+                      const Chip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(Icons.analytics_outlined),
+                        label: Text('Parámetros guardados'),
+                      ),
+
                   ],
                 ),
+                if (draft.hasCompleteCfeReview) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        context.push(AppRoutes.reciboCfeRevision);
+                      },
+                      icon: const Icon(Icons.edit_document),
+                      label: const Text('Ver / editar datos CFE'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
