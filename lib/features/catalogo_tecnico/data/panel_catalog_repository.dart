@@ -69,6 +69,39 @@ class PanelCatalogRepository {
     );
   }
 
+  Future<bool> upsertPanelByBrandAndModel(
+    SaveSolarPanelInput input,
+  ) async {
+    final normalizedBrand = input.brand.trim().toLowerCase();
+    final normalizedModel = input.model.trim().toLowerCase();
+
+    final rows = await (_database.select(_database.panels)
+          ..where((table) => table.isDeleted.equals(false)))
+        .get();
+
+    Panel? existingPanel;
+
+    for (final row in rows) {
+      if (row.brand.trim().toLowerCase() == normalizedBrand &&
+          row.model.trim().toLowerCase() == normalizedModel) {
+        existingPanel = row;
+        break;
+      }
+    }
+
+    if (existingPanel == null) {
+      await createPanel(input);
+      return true;
+    }
+
+    await updatePanel(
+      panelId: existingPanel.id,
+      input: input,
+    );
+
+    return false;
+  }
+
   Future<void> setPanelActive({
     required String panelId,
     required bool isActive,

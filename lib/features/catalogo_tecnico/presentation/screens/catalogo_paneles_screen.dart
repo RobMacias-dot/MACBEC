@@ -6,11 +6,35 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../application/panel_catalog_controller.dart';
 import '../../domain/entities/solar_panel.dart';
 
-class CatalogoPanelesScreen extends ConsumerWidget {
+enum _PanelCatalogFilter {
+  active,
+  all,
+  inactive,
+  incomplete,
+}
+
+class CatalogoPanelesScreen extends ConsumerStatefulWidget {
   const CatalogoPanelesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CatalogoPanelesScreen> createState() =>
+      _CatalogoPanelesScreenState();
+}
+
+class _CatalogoPanelesScreenState
+    extends ConsumerState<CatalogoPanelesScreen> {
+  final _searchController = TextEditingController();
+
+  _PanelCatalogFilter _filter = _PanelCatalogFilter.active;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final panelsAsync = ref.watch(panelsCatalogProvider);
 
     return AppScaffold(
@@ -23,7 +47,7 @@ class CatalogoPanelesScreen extends ConsumerWidget {
         ),
       ],
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openPanelForm(context, ref),
+        onPressed: () => _openPanelForm(context),
         icon: const Icon(Icons.add),
         label: const Text('Panel'),
       ),
@@ -52,7 +76,7 @@ class CatalogoPanelesScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
-                      onPressed: () => _openPanelForm(context, ref),
+                      onPressed: () => _openPanelForm(context),
                       icon: const Icon(Icons.add),
                       label: const Text('Agregar primer panel'),
                     ),
@@ -62,29 +86,105 @@ class CatalogoPanelesScreen extends ConsumerWidget {
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.only(bottom: 90),
-            itemCount: panels.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final panel = panels[index];
+          final filteredPanels = _applyFilters(panels);
 
-              return _PanelCard(
-                panel: panel,
-                onEdit: () => _openPanelForm(context, ref, panel: panel),
-                onToggleActive: () => _togglePanelActive(context, ref, panel),
-                onDelete: () => _confirmDeletePanel(context, ref, panel),
-              );
-            },
+          final activeCount = panels.where((panel) => panel.isActive).length;
+          final inactiveCount = panels.where((panel) => !panel.isActive).length;
+          final incompleteCount = panels
+              .where((panel) => !panel.hasRequiredTechnicalData)
+              .length;
+
+          return ListView(
+            padding: const EdgeInsets.only(bottom: 90),
+            children: [
+              _PanelCatalogToolbar(
+                searchController: _searchController,
+                filter: _filter,
+                totalCount: panels.length,
+                visibleCount: filteredPanels.length,
+                activeCount: activeCount,
+                inactiveCount: inactiveCount,
+                incompleteCount: incompleteCount,
+                onSearchChanged: (_) {
+                  setState(() {});
+                },
+                onClearSearch: () {
+                  _searchController.clear();
+                  setState(() {});
+                },
+                onFilterChanged: (filter) {
+                  setState(() {
+                    _filter = filter;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              if (filteredPanels.isEmpty)
+                _FilteredEmptyPanelsView(
+                  onClearFilters: () {
+                    _searchController.clear();
+                    setState(() {
+                      _filter = _PanelCatalogFilter.all;
+                    });
+                  },
+                )
+              else
+                for (final panel in filteredPanels) ...[
+                  _PanelCard(
+                    panel: panel,
+                    onEdit: () => _openPanelForm(context, panel: panel),
+                    onToggleActive: () => _togglePanelActive(context, panel),
+                    onDelete: () => _confirmDeletePanel(context, panel),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+            ],
           );
         },
       ),
     );
   }
 
+  List<SolarPanel> _applyFilters(List<SolarPanel> panels) {
+    final query = _searchController.text.trim().toLowerCase();
+
+    Iterable<SolarPanel> filteredPanels = panels;
+
+    switch (_filter) {
+      case _PanelCatalogFilter.active:
+        filteredPanels = filteredPanels.where((panel) => panel.isActive);
+        break;
+      case _PanelCatalogFilter.inactive:
+        filteredPanels = filteredPanels.where((panel) => !panel.isActive);
+        break;
+      case _PanelCatalogFilter.incomplete:
+        filteredPanels = filteredPanels.where(
+          (panel) => !panel.hasRequiredTechnicalData,
+        );
+        break;
+      case _PanelCatalogFilter.all:
+        break;
+    }
+
+    if (query.isNotEmpty) {
+      filteredPanels = filteredPanels.where((panel) {
+        final searchableText = [
+          panel.brand,
+          panel.model,
+          panel.powerWatts.toStringAsFixed(0),
+          panel.voc?.toStringAsFixed(2) ?? '',
+          panel.isc?.toStringAsFixed(2) ?? '',
+        ].join(' ').toLowerCase();
+
+        return searchableText.contains(query);
+      });
+    }
+
+    return filteredPanels.toList();
+  }
+
   void _openPanelForm(
-    BuildContext context,
-    WidgetRef ref, {
+    BuildContext context, {
     SolarPanel? panel,
   }) {
     showModalBottomSheet<void>(
@@ -129,7 +229,6 @@ class CatalogoPanelesScreen extends ConsumerWidget {
 
   Future<void> _togglePanelActive(
     BuildContext context,
-    WidgetRef ref,
     SolarPanel panel,
   ) async {
     await ref.read(panelCatalogRepositoryProvider).setPanelActive(
@@ -154,7 +253,6 @@ class CatalogoPanelesScreen extends ConsumerWidget {
 
   Future<void> _confirmDeletePanel(
     BuildContext context,
-    WidgetRef ref,
     SolarPanel panel,
   ) async {
     final shouldDelete = await showDialog<bool>(
@@ -190,6 +288,137 @@ class CatalogoPanelesScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Panel eliminado del catálogo.'),
+      ),
+    );
+  }
+}
+
+class _PanelCatalogToolbar extends StatelessWidget {
+  const _PanelCatalogToolbar({
+    required this.searchController,
+    required this.filter,
+    required this.totalCount,
+    required this.visibleCount,
+    required this.activeCount,
+    required this.inactiveCount,
+    required this.incompleteCount,
+    required this.onSearchChanged,
+    required this.onClearSearch,
+    required this.onFilterChanged,
+  });
+
+  final TextEditingController searchController;
+  final _PanelCatalogFilter filter;
+  final int totalCount;
+  final int visibleCount;
+  final int activeCount;
+  final int inactiveCount;
+  final int incompleteCount;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClearSearch;
+  final ValueChanged<_PanelCatalogFilter> onFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasSearch = searchController.text.trim().isNotEmpty;
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              decoration: InputDecoration(
+                labelText: 'Buscar panel',
+                hintText: 'Marca, modelo, potencia, Voc o Isc',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: hasSearch
+                    ? IconButton(
+                        tooltip: 'Limpiar búsqueda',
+                        onPressed: onClearSearch,
+                        icon: const Icon(Icons.close),
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: Text('Activos ($activeCount)'),
+                  selected: filter == _PanelCatalogFilter.active,
+                  onSelected: (_) {
+                    onFilterChanged(_PanelCatalogFilter.active);
+                  },
+                ),
+                ChoiceChip(
+                  label: Text('Todos ($totalCount)'),
+                  selected: filter == _PanelCatalogFilter.all,
+                  onSelected: (_) {
+                    onFilterChanged(_PanelCatalogFilter.all);
+                  },
+                ),
+                ChoiceChip(
+                  label: Text('Inactivos ($inactiveCount)'),
+                  selected: filter == _PanelCatalogFilter.inactive,
+                  onSelected: (_) {
+                    onFilterChanged(_PanelCatalogFilter.inactive);
+                  },
+                ),
+                ChoiceChip(
+                  label: Text('Incompletos ($incompleteCount)'),
+                  selected: filter == _PanelCatalogFilter.incomplete,
+                  onSelected: (_) {
+                    onFilterChanged(_PanelCatalogFilter.incomplete);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '$visibleCount de $totalCount paneles visibles',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilteredEmptyPanelsView extends StatelessWidget {
+  const _FilteredEmptyPanelsView({
+    required this.onClearFilters,
+  });
+
+  final VoidCallback onClearFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const EmptyState(
+            title: 'Sin resultados',
+            message:
+                'No hay paneles que coincidan con la búsqueda o el filtro seleccionado.',
+            icon: Icons.search_off_outlined,
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onClearFilters,
+            icon: const Icon(Icons.filter_alt_off_outlined),
+            label: const Text('Limpiar filtros'),
+          ),
+        ],
       ),
     );
   }

@@ -42,6 +42,11 @@ class DashboardScreen extends StatelessWidget {
                   icon: Icons.settings_outlined,
                   onTap: () => context.go(AppRoutes.configuracion),
                 ),
+                _DashboardButton(
+                  label: 'Actualizar precios',
+                  icon: Icons.upload_file_outlined,
+                  onTap: () => context.go(AppRoutes.importacionCatalogo),
+                ),
               ],
             ),
           ),

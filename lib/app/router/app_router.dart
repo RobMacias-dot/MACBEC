@@ -23,6 +23,7 @@ import '../../features/proyectos/presentation/screens/proyecto_detalle_screen.da
 import '../../features/proyectos/presentation/screens/proyecto_form_screen.dart';
 import '../../features/recibo_cfe/presentation/screens/recibo_cfe_revision_screen.dart';
 import '../../features/recibo_cfe/presentation/screens/recibo_cfe_screen.dart';
+import '../../features/catalogo_tecnico/presentation/screens/catalogo_importacion_screen.dart';
 import 'app_routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -92,6 +93,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.proveedores,
         builder: (context, state) => const ProveedoresScreen(),
+      ),
+            GoRoute(
+        path: AppRoutes.importacionCatalogo,
+        builder: (context, state) => const CatalogoImportacionScreen(),
       ),
       GoRoute(
         path: AppRoutes.cotizacion,
