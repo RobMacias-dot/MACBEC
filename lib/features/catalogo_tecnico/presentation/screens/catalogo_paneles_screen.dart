@@ -21,8 +21,7 @@ class CatalogoPanelesScreen extends ConsumerStatefulWidget {
       _CatalogoPanelesScreenState();
 }
 
-class _CatalogoPanelesScreenState
-    extends ConsumerState<CatalogoPanelesScreen> {
+class _CatalogoPanelesScreenState extends ConsumerState<CatalogoPanelesScreen> {
   final _searchController = TextEditingController();
 
   _PanelCatalogFilter _filter = _PanelCatalogFilter.active;
@@ -90,9 +89,8 @@ class _CatalogoPanelesScreenState
 
           final activeCount = panels.where((panel) => panel.isActive).length;
           final inactiveCount = panels.where((panel) => !panel.isActive).length;
-          final incompleteCount = panels
-              .where((panel) => !panel.hasRequiredTechnicalData)
-              .length;
+          final incompleteCount =
+              panels.where((panel) => !panel.hasRequiredTechnicalData).length;
 
           return ListView(
             padding: const EdgeInsets.only(bottom: 90),

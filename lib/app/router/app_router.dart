@@ -6,6 +6,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/setup_admin_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
+import '../../features/catalogo_tecnico/presentation/screens/catalogo_importacion_screen.dart';
 import '../../features/catalogo_tecnico/presentation/screens/catalogo_inversores_screen.dart';
 import '../../features/catalogo_tecnico/presentation/screens/catalogo_paneles_screen.dart';
 import '../../features/clientes/presentation/screens/cliente_detalle_screen.dart';
@@ -17,13 +18,15 @@ import '../../features/cotizaciones/presentation/screens/cotizacion_interna_scre
 import '../../features/cotizaciones/presentation/screens/cotizacion_prospecto_form_screen.dart';
 import '../../features/cotizaciones/presentation/screens/cotizacion_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/dimensionamiento_electrico/presentation/screens/dimensionamiento_electrico_screen.dart';
 import '../../features/expediente/presentation/screens/expediente_screen.dart';
+import '../../features/proveedores_precios/presentation/screens/analisis_producto_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/proveedores_screen.dart';
 import '../../features/proyectos/presentation/screens/proyecto_detalle_screen.dart';
 import '../../features/proyectos/presentation/screens/proyecto_form_screen.dart';
 import '../../features/recibo_cfe/presentation/screens/recibo_cfe_revision_screen.dart';
 import '../../features/recibo_cfe/presentation/screens/recibo_cfe_screen.dart';
-import '../../features/catalogo_tecnico/presentation/screens/catalogo_importacion_screen.dart';
+import '../../features/seleccion_tecnica/presentation/screens/seleccion_tecnica_screen.dart';
 import 'app_routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -83,6 +86,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AnalisisConsumoScreen(),
       ),
       GoRoute(
+        path: AppRoutes.seleccionTecnica,
+        builder: (context, state) => const SeleccionTecnicaScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.dimensionamientoElectrico,
+        builder: (context, state) => const DimensionamientoElectricoScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.catalogoPaneles,
         builder: (context, state) => const CatalogoPanelesScreen(),
       ),
@@ -94,9 +105,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.proveedores,
         builder: (context, state) => const ProveedoresScreen(),
       ),
-            GoRoute(
+      GoRoute(
         path: AppRoutes.importacionCatalogo,
         builder: (context, state) => const CatalogoImportacionScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.analisisProductoCatalogo,
+        builder: (context, state) => const AnalisisProductoScreen(),
       ),
       GoRoute(
         path: AppRoutes.cotizacion,

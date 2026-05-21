@@ -17,7 +17,7 @@ class DashboardScreen extends StatelessWidget {
           SectionCard(
             title: 'Flujo comercial',
             subtitle:
-                'Cotización provisional → Recibo CFE → Análisis → PDF → Aprobación → Cliente/Expediente',
+                'Cotización provisional → Recibo CFE → Análisis → Selección técnica → Dimensionamiento → PDF → Aprobación → Cliente/Expediente',
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -45,7 +45,7 @@ class DashboardScreen extends StatelessWidget {
                 _DashboardButton(
                   label: 'Actualizar precios',
                   icon: Icons.upload_file_outlined,
-                  onTap: () => context.go(AppRoutes.importacionCatalogo),
+                  onTap: () => context.go(AppRoutes.proveedores),
                 ),
               ],
             ),

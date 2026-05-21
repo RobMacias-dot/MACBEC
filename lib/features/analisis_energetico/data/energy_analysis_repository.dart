@@ -5,8 +5,7 @@ import '../../cotizaciones/domain/entities/quotation_draft.dart'
     as quotation_entity;
 import '../domain/entities/quotation_draft_consumption.dart'
     as consumption_entity;
-import '../domain/entities/quotation_draft_pv_calculation.dart'
-    as pv_entity;
+import '../domain/entities/quotation_draft_pv_calculation.dart' as pv_entity;
 
 class EnergyAnalysisRepository {
   EnergyAnalysisRepository(this._database);
@@ -134,10 +133,10 @@ class EnergyAnalysisRepository {
     final existing = await (_database.select(
       _database.quotationDraftPvCalculations,
     )..where(
-        (table) =>
-            table.quotationDraftId.equals(quotationDraftId) &
-            table.isDeleted.equals(false),
-      ))
+            (table) =>
+                table.quotationDraftId.equals(quotationDraftId) &
+                table.isDeleted.equals(false),
+          ))
         .getSingleOrNull();
 
     if (existing == null) {

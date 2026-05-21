@@ -4,13 +4,15 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:xml/xml.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xml/xml.dart';
 
 import '../../../../shared/components/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../application/inverter_catalog_controller.dart';
 import '../../application/panel_catalog_controller.dart';
+import '../../domain/entities/solar_inverter.dart';
 import '../../domain/entities/solar_panel.dart';
 
 enum _CatalogCategoryRole {
@@ -162,9 +164,9 @@ String _catalogCategoryLabel(String category) {
 _CatalogCategoryRole _catalogCategoryRole(String category) {
   switch (category) {
     case 'PANEL_SOLAR':
+    case 'INVERSOR':
       return _CatalogCategoryRole.importsNow;
 
-    case 'INVERSOR':
     case 'CABLE_PRODUCTO':
     case 'TUBERIA_PRODUCTO':
     case 'PROTECCION_FUSIBLE':
@@ -251,13 +253,13 @@ class _CatalogoImportacionScreenState
                 const _ImportInfoRow(
                   icon: Icons.table_chart_outlined,
                   text:
-                      'Por ahora solo se importan paneles solares. Cables y tuberías técnicas se mantienen como referencias internas; los precios comerciales se actualizarán después desde Excel de proveedores.',
+                      'Por ahora se importan paneles solares e inversores. Cables y tuberías técnicas se mantienen como referencias internas; los precios comerciales se actualizarán después desde Excel de proveedores.',
                 ),
                 const SizedBox(height: 10),
                 const _ImportInfoRow(
                   icon: Icons.verified_outlined,
                   text:
-                      'Los paneles se actualizan por marca + modelo. Las demás categorías se detectan, pero no se importan hasta tener su módulo confiable.',
+                      'Paneles e inversores se actualizan por marca + modelo. Las demás categorías se detectan, pero no se importan hasta tener su módulo confiable.',
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -301,23 +303,24 @@ class _CatalogoImportacionScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_preview!.panelCandidates.isEmpty)
+                  if (_preview!.panelCandidates.isEmpty &&
+                      _preview!.inverterCandidates.isEmpty)
                     const _ImportInfoRow(
                       icon: Icons.info_outline,
                       text:
-                          'No se encontraron paneles solares válidos para importar.',
+                          'No se encontraron paneles solares ni inversores válidos para importar.',
                     )
                   else ...[
                     _ImportInfoRow(
-                      icon: Icons.solar_power_outlined,
+                      icon: Icons.inventory_2_outlined,
                       text:
-                          'Se importarán ${_preview!.panelCandidates.length} paneles solares. Las demás categorías solo quedarán detectadas para mantener el catálogo confiable.',
+                          'Se importarán ${_preview!.panelCandidates.length} paneles solares y ${_preview!.inverterCandidates.length} inversores. Las demás categorías solo quedarán detectadas para mantener el catálogo confiable.',
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: _isImporting ? null : _importPanels,
+                        onPressed: _isImporting ? null : _importCatalog,
                         icon: _isImporting
                             ? const SizedBox(
                                 width: 18,
@@ -329,8 +332,8 @@ class _CatalogoImportacionScreenState
                             : const Icon(Icons.save_outlined),
                         label: Text(
                           _isImporting
-                              ? 'Importando paneles...'
-                              : 'Importar paneles al catálogo',
+                              ? 'Importando catálogo...'
+                              : 'Importar paneles e inversores',
                         ),
                       ),
                     ),
@@ -719,6 +722,7 @@ class _CatalogoImportacionScreenState
 
     final categoryCounts = <String, int>{};
     final panelCandidates = <_PanelImportCandidate>[];
+    final inverterCandidates = <_InverterImportCandidate>[];
     final warnings = <String>[];
 
     for (int rowIndex = 1; rowIndex < rows.length; rowIndex++) {
@@ -737,6 +741,117 @@ class _CatalogoImportacionScreenState
         if (categoryCounts[normalizedCategory] == 1) {
           warnings.add(
             '${_catalogCategoryLabel(normalizedCategory)} detectado como "${_catalogCategoryStatusText(normalizedCategory)}". No se importará en esta fase.',
+          );
+        }
+
+        continue;
+      }
+
+      if (normalizedCategory == 'INVERSOR') {
+        final brand = _getString(row, headers, 'marca') ?? '';
+        final model = _getString(row, headers, 'modelo') ?? '';
+
+        final nominalPowerWatts = _getDoubleFromFirstAvailable(
+              row,
+              headers,
+              [
+                'potencia_nominal_w',
+                'potencia_inversor_w',
+                'nominal_power_w',
+                'potencia_w',
+              ],
+            ) ??
+            _extractPowerWattsFromText('$brand $model');
+
+        if (brand.trim().isEmpty ||
+            model.trim().isEmpty ||
+            nominalPowerWatts == null ||
+            nominalPowerWatts <= 0) {
+          warnings.add(
+            'Fila ${rowIndex + 1}: inversor omitido por falta de marca, modelo o potencia nominal.',
+          );
+          continue;
+        }
+
+        final isActive = _getBool(row, headers, 'activo') ?? true;
+
+        if (!isActive) {
+          warnings.add(
+            'Fila ${rowIndex + 1}: inversor inactivo omitido temporalmente.',
+          );
+          continue;
+        }
+
+        final priceMxn = _getDouble(row, headers, 'precio_mxn');
+        final purchasePrice =
+            priceMxn ?? _getDouble(row, headers, 'precio_compra');
+
+        final input = SaveSolarInverterInput(
+          brand: brand,
+          model: model,
+          nominalPowerWatts: nominalPowerWatts,
+          maxPvPowerWatts: _getDoubleFromFirstAvailable(
+            row,
+            headers,
+            [
+              'max_potencia_fv_w',
+              'potencia_max_fv_w',
+              'max_pv_power_w',
+              'max_pv_power_watts',
+            ],
+          ),
+          maxDcVoltage: _getDoubleFromFirstAvailable(
+            row,
+            headers,
+            [
+              'max_voltaje_cd_v',
+              'voltaje_max_cd_v',
+              'max_dc_voltage_v',
+            ],
+          ),
+          maxShortCircuitCurrentPerMppt: _getDoubleFromFirstAvailable(
+            row,
+            headers,
+            [
+              'corriente_cc_mppt_a',
+              'corriente_corto_circuito_mppt_a',
+              'max_isc_mppt_a',
+              'max_short_circuit_current_per_mppt_a',
+            ],
+          ),
+          maxOutputCurrent: _getDoubleFromFirstAvailable(
+            row,
+            headers,
+            [
+              'corriente_salida_a',
+              'corriente_max_salida_a',
+              'max_output_current_a',
+            ],
+          ),
+          mpptCount: _getIntFromFirstAvailable(
+            row,
+            headers,
+            [
+              'mppt_count',
+              'mppt',
+              'numero_mppt',
+              'numero_mppts',
+            ],
+          ),
+          purchasePrice: purchasePrice,
+          priceSource: 'Excel estándar',
+        );
+
+        inverterCandidates.add(
+          _InverterImportCandidate(
+            rowNumber: rowIndex + 1,
+            input: input,
+          ),
+        );
+
+        if (!input.hasRequiredTechnicalDataForDimensioning) {
+          warnings.add(
+            'Fila ${rowIndex + 1}: ${input.brand} ${input.model} se importará con precio, pero aún tiene datos técnicos incompletos para dimensionamiento.',
           );
         }
 
@@ -795,14 +910,17 @@ class _CatalogoImportacionScreenState
       totalRows: rows.length - 1,
       categoryCounts: categoryCounts,
       panelCandidates: panelCandidates,
+      inverterCandidates: inverterCandidates,
       warnings: warnings,
     );
   }
 
-  Future<void> _importPanels() async {
+  Future<void> _importCatalog() async {
     final preview = _preview;
 
-    if (preview == null || preview.panelCandidates.isEmpty) {
+    if (preview == null ||
+        (preview.panelCandidates.isEmpty &&
+            preview.inverterCandidates.isEmpty)) {
       return;
     }
 
@@ -810,30 +928,47 @@ class _CatalogoImportacionScreenState
       _isImporting = true;
     });
 
-    var created = 0;
-    var updated = 0;
+    var panelsCreated = 0;
+    var panelsUpdated = 0;
+    var invertersCreated = 0;
+    var invertersUpdated = 0;
 
     try {
-      final repository = ref.read(panelCatalogRepositoryProvider);
+      final panelRepository = ref.read(panelCatalogRepositoryProvider);
+      final inverterRepository = ref.read(inverterCatalogRepositoryProvider);
 
       for (final candidate in preview.panelCandidates) {
-        final wasCreated = await repository.upsertPanelByBrandAndModel(
+        final wasCreated = await panelRepository.upsertPanelByBrandAndModel(
           candidate.input,
         );
 
         if (wasCreated) {
-          created++;
+          panelsCreated++;
         } else {
-          updated++;
+          panelsUpdated++;
+        }
+      }
+
+      for (final candidate in preview.inverterCandidates) {
+        final wasCreated =
+            await inverterRepository.upsertInverterByBrandAndModel(
+          candidate.input,
+        );
+
+        if (wasCreated) {
+          invertersCreated++;
+        } else {
+          invertersUpdated++;
         }
       }
 
       ref.invalidate(panelsCatalogProvider);
+      ref.invalidate(invertersCatalogProvider);
 
       if (!mounted) return;
 
       _showSnackBar(
-        'Importación lista: $created paneles creados, $updated actualizados.',
+        'Importación lista: $panelsCreated paneles creados, $panelsUpdated paneles actualizados, $invertersCreated inversores creados, $invertersUpdated inversores actualizados.',
       );
     } catch (error) {
       _showSnackBar('No se pudo importar el catálogo: $error');
@@ -883,6 +1018,66 @@ class _CatalogoImportacionScreenState
     return double.tryParse(cleanValue);
   }
 
+  double? _getDoubleFromFirstAvailable(
+    List<String?> row,
+    Map<String, int> headers,
+    List<String> columns,
+  ) {
+    for (final column in columns) {
+      if (!headers.containsKey(column)) continue;
+
+      final value = _getDouble(row, headers, column);
+
+      if (value != null) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  int? _getIntFromFirstAvailable(
+    List<String?> row,
+    Map<String, int> headers,
+    List<String> columns,
+  ) {
+    final value = _getDoubleFromFirstAvailable(row, headers, columns);
+
+    if (value == null) return null;
+
+    return value.round();
+  }
+
+  double? _extractPowerWattsFromText(String value) {
+    final normalizedValue = value.toLowerCase().replaceAll(',', '.');
+
+    final kwMatch = RegExp(
+      r'(\d+(?:\.\d+)?)\s*k\s*w',
+    ).firstMatch(normalizedValue);
+
+    if (kwMatch != null) {
+      final kwValue = double.tryParse(kwMatch.group(1) ?? '');
+
+      if (kwValue != null && kwValue > 0) {
+        return kwValue * 1000;
+      }
+    }
+
+    final wattsMatch = RegExp(
+      r'(\d+(?:\.\d+)?)\s*w',
+    ).firstMatch(normalizedValue);
+
+    if (wattsMatch != null) {
+      final wattsValue = double.tryParse(wattsMatch.group(1) ?? '');
+
+      if (wattsValue != null && wattsValue > 0) {
+        return wattsValue;
+      }
+    }
+
+    return null;
+  }
+
   bool? _getBool(
     List<String?> row,
     Map<String, int> headers,
@@ -928,12 +1123,14 @@ class _CatalogImportPreview {
     required this.totalRows,
     required this.categoryCounts,
     required this.panelCandidates,
+    required this.inverterCandidates,
     required this.warnings,
   });
 
   final int totalRows;
   final Map<String, int> categoryCounts;
   final List<_PanelImportCandidate> panelCandidates;
+  final List<_InverterImportCandidate> inverterCandidates;
   final List<String> warnings;
 }
 
@@ -945,6 +1142,32 @@ class _PanelImportCandidate {
 
   final int rowNumber;
   final SaveSolarPanelInput input;
+}
+
+class _InverterImportCandidate {
+  const _InverterImportCandidate({
+    required this.rowNumber,
+    required this.input,
+  });
+
+  final int rowNumber;
+  final SaveSolarInverterInput input;
+}
+
+extension _SaveSolarInverterInputValidation on SaveSolarInverterInput {
+  bool get hasRequiredTechnicalDataForDimensioning {
+    return nominalPowerWatts > 0 &&
+        maxPvPowerWatts != null &&
+        maxPvPowerWatts! > 0 &&
+        maxDcVoltage != null &&
+        maxDcVoltage! > 0 &&
+        maxShortCircuitCurrentPerMppt != null &&
+        maxShortCircuitCurrentPerMppt! > 0 &&
+        maxOutputCurrent != null &&
+        maxOutputCurrent! > 0 &&
+        mpptCount != null &&
+        mpptCount! > 0;
+  }
 }
 
 class _ImportPreviewCard extends StatelessWidget {
@@ -982,9 +1205,9 @@ class _ImportPreviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ImportInfoRow(
-            icon: Icons.solar_power_outlined,
+            icon: Icons.inventory_2_outlined,
             text:
-                '${preview.panelCandidates.length} paneles solares listos para importar.',
+                '${preview.panelCandidates.length} paneles solares y ${preview.inverterCandidates.length} inversores listos para importar.',
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -1006,7 +1229,8 @@ class _ImportPreviewCard extends StatelessWidget {
           const SizedBox(height: 14),
           const _ImportInfoRow(
             icon: Icons.check_circle_outline,
-            text: 'Importación activa en esta fase: paneles solares.',
+            text:
+                'Importación activa en esta fase: paneles solares e inversores.',
           ),
           if (hasCommercialPending) ...[
             const SizedBox(height: 8),
