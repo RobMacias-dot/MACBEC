@@ -185,7 +185,7 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'Horas solares pico',
                                   helperText:
-                                      'Valor estimado inicial. Después se tomará por estado/municipio.',
+                                      'Captura las horas solares pico del sitio.',
                                   suffixText: 'h',
                                   prefixIcon: Icon(Icons.wb_sunny_outlined),
                                 ),
@@ -209,7 +209,7 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'Potencia estimada del panel',
                                   helperText:
-                                      'Se usará solo como referencia. En selección técnica se escogerá el panel real.',
+                                      'Selecciona después el modelo real del panel.',
                                   suffixText: 'W',
                                   prefixIcon: Icon(Icons.solar_power_outlined),
                                 ),
@@ -229,7 +229,7 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                                   onPressed: _calculate,
                                   icon: const Icon(Icons.calculate_outlined),
                                   label: const Text(
-                                    'Actualizar cálculo preliminar',
+                                    'Actualizar cálculo',
                                   ),
                                 ),
                               ),
@@ -263,25 +263,25 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                       if (_result != null) ...[
                         const SizedBox(height: 16),
                         SectionCard(
-                          title: 'Resultado inicial',
+                          title: 'Resultado energético',
                           subtitle:
-                              'Este cálculo es una estimación preliminar para dimensionar la propuesta.',
+                              'Consumo y generación estimada del sistema.',
                           child: _CalculationResultView(result: _result!),
                         ),
                       ],
                       if (savedPvCalculation != null) ...[
                         const SizedBox(height: 16),
                         SectionCard(
-                          title: 'Siguiente etapa',
+                          title: 'Continuar',
                           subtitle:
-                              'El análisis energético ya está guardado. Ahora selecciona panel real e inversor dentro del flujo de cotización.',
+                              'El análisis energético está guardado. Selecciona el panel solar para continuar.',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const _InfoRow(
                                 icon: Icons.fact_check_outlined,
                                 text:
-                                    'La selección técnica tomará el resultado FV y lo ajustará con un panel real del catálogo.',
+                                    'Selecciona un panel disponible del catálogo.',
                               ),
                               const SizedBox(height: 14),
                               SizedBox(
@@ -301,17 +301,6 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      const SectionCard(
-                        title: 'Análisis guardado',
-                        subtitle:
-                            'El resultado fotovoltaico queda persistido localmente para continuar con las siguientes etapas.',
-                        child: _InfoRow(
-                          icon: Icons.info_outline,
-                          text:
-                              'La app reutilizará consumo anual, consumo diario, generación por panel y paneles estimados sin recalcular desde cero.',
-                        ),
-                      ),
                     ],
                   );
                 },

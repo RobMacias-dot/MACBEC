@@ -99,12 +99,13 @@ class _MacBecAnimatedLogoState extends State<MacBecAnimatedLogo>
               1.0,
               _curve(progress, 0.34, 0.92, Curves.easeOutBack),
             );
-            final overlayOpacity = 1.0 - _curve(
-              progress,
-              0.78,
-              1.0,
-              Curves.easeOut,
-            );
+            final overlayOpacity = 1.0 -
+                _curve(
+                  progress,
+                  0.78,
+                  1.0,
+                  Curves.easeOut,
+                );
 
             return Stack(
               fit: StackFit.expand,
@@ -190,9 +191,9 @@ class _MacBecIntroPainter extends CustomPainter {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          const Color(0xFF005A9C).withOpacity(t),
-          const Color(0xFF0D8FD0).withOpacity(t),
-          const Color(0xFF24C8B7).withOpacity(t),
+          const Color(0xFF005A9C).withValues(alpha: t),
+          const Color(0xFF0D8FD0).withValues(alpha: t),
+          const Color(0xFF24C8B7).withValues(alpha: t),
         ],
       ).createShader(path.getBounds())
       ..style = PaintingStyle.fill;
@@ -206,7 +207,7 @@ class _MacBecIntroPainter extends CustomPainter {
 
     if (settle > 0) {
       final highlightPaint = Paint()
-        ..color = const Color(0xFFE8F4FA).withOpacity(0.72 * settle * t)
+        ..color = const Color(0xFFE8F4FA).withValues(alpha: 0.72 * settle * t)
         ..strokeWidth = size.width * 0.010
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
@@ -269,9 +270,9 @@ class _MacBecIntroPainter extends CustomPainter {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          const Color(0xFF23C7B9).withOpacity(t),
-          const Color(0xFF119ED9).withOpacity(t),
-          const Color(0xFF005A9C).withOpacity(t),
+          const Color(0xFF23C7B9).withValues(alpha: t),
+          const Color(0xFF119ED9).withValues(alpha: t),
+          const Color(0xFF005A9C).withValues(alpha: t),
         ],
       ).createShader(path.getBounds())
       ..style = PaintingStyle.fill;
@@ -285,7 +286,7 @@ class _MacBecIntroPainter extends CustomPainter {
 
     if (settle > 0) {
       final highlightPaint = Paint()
-        ..color = const Color(0xFFE8F4FA).withOpacity(0.62 * settle * t)
+        ..color = const Color(0xFFE8F4FA).withValues(alpha: 0.62 * settle * t)
         ..strokeWidth = size.width * 0.010
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
@@ -315,31 +316,34 @@ class _MacBecIntroPainter extends CustomPainter {
     if (sunT <= 0) return;
 
     final rayPaint = Paint()
-      ..color = const Color(0xFFEFA51A).withOpacity(sunT)
+      ..color = const Color(0xFFEFA51A).withValues(alpha: sunT)
       ..strokeWidth = size.width * 0.0038
       ..strokeCap = StrokeCap.round;
 
     final rayRotation = progress * math.pi * 0.80;
     for (int i = 0; i < 26; i++) {
       final angle = (i * math.pi * 2 / 26) + rayRotation;
-      final p1 = center + Offset(math.cos(angle), math.sin(angle)) * radius * 1.08;
-      final p2 = center + Offset(math.cos(angle), math.sin(angle)) * radius * 1.58;
+      final p1 =
+          center + Offset(math.cos(angle), math.sin(angle)) * radius * 1.08;
+      final p2 =
+          center + Offset(math.cos(angle), math.sin(angle)) * radius * 1.58;
       canvas.drawLine(p1, p2, rayPaint);
     }
 
     canvas.drawCircle(
       center,
       radius,
-      Paint()..color = const Color(0xFFFFC247).withOpacity(sunT),
+      Paint()..color = const Color(0xFFFFC247).withValues(alpha: sunT),
     );
 
-    final eclipseCenter = center + Offset(size.width * 0.020, size.height * 0.005);
+    final eclipseCenter =
+        center + Offset(size.width * 0.020, size.height * 0.005);
     final eclipseRadius = size.width * 0.004 + (size.width * 0.036 * eclipseT);
 
     canvas.drawCircle(
       eclipseCenter,
       eclipseRadius,
-      Paint()..color = Colors.black.withOpacity(sunT),
+      Paint()..color = Colors.black.withValues(alpha: sunT),
     );
   }
 

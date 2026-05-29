@@ -7,11 +7,12 @@ class CotizacionInternaScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return const AppScaffold(
       title: 'Cotización interna',
-      child: const EmptyState(
+      child: EmptyState(
         title: 'Vista interna',
-        message: 'Esta vista sí mostrará costos, utilidad, margen y datos internos.',
+        message:
+            'Esta vista sí mostrará costos, utilidad, margen y datos internos.',
         icon: Icons.visibility_outlined,
       ),
     );

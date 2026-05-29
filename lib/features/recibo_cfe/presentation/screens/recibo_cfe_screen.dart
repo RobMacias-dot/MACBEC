@@ -85,37 +85,15 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
           const SizedBox(height: 16),
           SectionCard(
             title: 'Estado del recibo',
-            subtitle:
-                'En esta fase todavía no usamos OCR. La revisión de datos será manual.',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _InfoRow(
-                  icon: Icons.folder_copy_outlined,
-                  text:
-                      'Los archivos se copian al almacenamiento privado local de la app.',
-                ),
-                const SizedBox(height: 10),
-                _InfoRow(
-                  icon: Icons.storage_outlined,
-                  text:
-                      'SQLite solo guarda metadatos: ruta, nombre, tipo, mimeType y tamaño.',
-                ),
-                const SizedBox(height: 10),
-                _InfoRow(
-                  icon: Icons.link_outlined,
-                  text:
-                      'El documento queda asociado al borrador de cotización activo.',
-                ),
-                if (_lastSavedFileName != null) ...[
-                  const SizedBox(height: 16),
-                  Chip(
+            subtitle: _lastSavedFileName == null
+                ? 'Aún no has agregado un recibo.'
+                : 'Recibo agregado correctamente.',
+            child: _lastSavedFileName == null
+                ? const Text('Selecciona una opción para continuar.')
+                : Chip(
                     avatar: const Icon(Icons.check_circle_outline),
-                    label: Text('Último archivo guardado: $_lastSavedFileName'),
+                    label: Text('Archivo: $_lastSavedFileName'),
                   ),
-                ],
-              ],
-            ),
           ),
         ],
       ),
@@ -355,39 +333,6 @@ class _ReceiptActionButton extends StatelessWidget {
           const Icon(Icons.chevron_right),
         ],
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.text,
-  });
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 22,
-          color: theme.colorScheme.primary,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ),
-      ],
     );
   }
 }

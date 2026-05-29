@@ -7,11 +7,12 @@ class ProyectoDetalleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return const AppScaffold(
       title: 'Detalle de proyecto',
-      child: const EmptyState(
+      child: EmptyState(
         title: 'Detalle de proyecto',
-        message: 'Aquí se controlará el estatus, recibos, análisis, cotizaciones y documentos del proyecto.',
+        message:
+            'Aquí se controlará el estatus, recibos, análisis, cotizaciones y documentos del proyecto.',
         icon: Icons.home_work_outlined,
       ),
     );

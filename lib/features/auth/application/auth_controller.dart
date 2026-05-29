@@ -9,7 +9,8 @@ enum AuthStartupDestination {
   dashboard,
 }
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
+final authControllerProvider =
+    StateNotifierProvider<AuthController, AuthState>((ref) {
   return AuthController(ref.watch(authRepositoryProvider));
 });
 

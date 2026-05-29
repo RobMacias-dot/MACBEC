@@ -7,9 +7,9 @@ class ClienteFormScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return const AppScaffold(
       title: 'Cliente',
-      child: const EmptyState(
+      child: EmptyState(
         title: 'Formulario de cliente',
         message: 'Aquí se registrará o editará la información del cliente.',
         icon: Icons.person_add_alt_1_outlined,

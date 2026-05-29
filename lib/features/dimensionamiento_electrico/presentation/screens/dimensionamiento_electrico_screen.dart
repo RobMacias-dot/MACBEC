@@ -28,6 +28,7 @@ class _DimensionamientoElectricoScreenState
   final _acVoltageController = TextEditingController(text: '220');
 
   String? _selectedInverterId;
+  String? _expandedInverterId;
   AcConductorMaterial _acMaterial = AcConductorMaterial.copper;
   AcPhaseType _acPhaseType = AcPhaseType.bifasic;
 
@@ -155,12 +156,12 @@ class _DimensionamientoElectricoScreenState
                     ),
                   );
 
-                  _ensureSelectedInverter(result);
-
                   final selectedOption = _findOptionByInverterId(
                     result.options,
                     _selectedInverterId,
                   );
+                  final featuredOption = selectedOption ?? result.bestOption;
+                  final compatibleCount = result.compatibleOptions.length;
 
                   final acInput = _buildAcInput();
                   final acRecommendation = selectedOption == null
@@ -174,40 +175,84 @@ class _DimensionamientoElectricoScreenState
                   return ListView(
                     children: [
                       SectionCard(
-                        title: 'Base del dimensionamiento',
-                        subtitle:
-                            'Validación preliminar con panel real, potencia FV, Voc, Isc y MPPT.',
+                        title: 'Datos del sistema',
                         child: _DimensioningSummary(
                           result: result,
                           selectedPanel: selectedPanel,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      if (selectedOption != null)
+                      SectionCard(
+                        title: selectedOption == null
+                            ? 'Inversor recomendado'
+                            : 'Inversor seleccionado',
+                        child: featuredOption == null
+                            ? const _InfoRow(
+                                icon: Icons.warning_amber_outlined,
+                                text:
+                                    'No hay opciones disponibles en el catálogo.',
+                              )
+                            : Column(
+                                children: [
+                                  _DimensioningOptionTile(
+                                    option: featuredOption,
+                                    isSelected: selectedOption != null,
+                                    isExpanded: featuredOption.inverter.id ==
+                                        _expandedInverterId,
+                                    onToggleDetails: () {
+                                      setState(() {
+                                        _expandedInverterId =
+                                            _expandedInverterId ==
+                                                    featuredOption.inverter.id
+                                                ? null
+                                                : featuredOption.inverter.id;
+                                      });
+                                    },
+                                    onSelect: selectedOption == null &&
+                                            featuredOption.isCompatible
+                                        ? () {
+                                            setState(() {
+                                              _selectedInverterId =
+                                                  featuredOption.inverter.id;
+                                              _expandedInverterId = null;
+                                            });
+                                          }
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _openInverterSelector(
+                                        result: result,
+                                      ),
+                                      icon: Icon(
+                                        selectedOption == null
+                                            ? Icons.tune_outlined
+                                            : Icons.swap_horiz_outlined,
+                                      ),
+                                      label: Text(
+                                        selectedOption == null
+                                            ? compatibleCount > 0
+                                                ? 'Ver opciones compatibles ($compatibleCount)'
+                                                : 'Ver opciones'
+                                            : 'Cambiar inversor',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                      if (selectedOption != null) ...[
+                        const SizedBox(height: 16),
                         SectionCard(
-                          title: 'Inversor seleccionado',
-                          subtitle:
-                              'Esta opción se tomará como base para fusibles, cableado y protecciones.',
-                          child: _SelectedInverterCard(
-                            option: selectedOption,
-                          ),
+                          title: 'Protección y cableado DC',
+                          child:
+                              _DcProtectionAndCableCard(option: selectedOption),
                         ),
-                      const SizedBox(height: 16),
-                      if (selectedOption != null)
+                        const SizedBox(height: 16),
                         SectionCard(
-                          title: 'Protección y cableado DC preliminar',
-                          subtitle:
-                              'Cálculo preliminar por string usando Isc del panel, fusible, calibre y número aproximado de conductores.',
-                          child: _DcProtectionAndCableCard(
-                            option: selectedOption,
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      if (selectedOption != null)
-                        SectionCard(
-                          title: 'Lado AC básico',
-                          subtitle:
-                              'Captura distancia, material y tensión para revisar conductor AC y caída de tensión preliminar.',
+                          title: 'Lado AC',
                           child: _AcSideCard(
                             distanceController: _acDistanceController,
                             voltageController: _acVoltageController,
@@ -230,12 +275,9 @@ class _DimensionamientoElectricoScreenState
                             },
                           ),
                         ),
-                      const SizedBox(height: 16),
-                      if (selectedOption != null)
+                        const SizedBox(height: 16),
                         SectionCard(
-                          title: 'Snapshot técnico preliminar',
-                          subtitle:
-                              'Resumen congelable para revisar con el cliente o con el equipo técnico. En una fase posterior se guardará en SQLite/PDF.',
+                          title: 'Resumen técnico',
                           child: _TechnicalSnapshotCard(
                             selectedPanel: selectedPanel,
                             selectedOption: selectedOption,
@@ -248,81 +290,7 @@ class _DimensionamientoElectricoScreenState
                             ),
                           ),
                         ),
-                      const SizedBox(height: 16),
-                      SectionCard(
-                        title: 'Opciones de inversores',
-                        subtitle:
-                            'Toca una opción para seleccionarla. La recomendación prioriza uso razonable del inversor y compatibilidad eléctrica.',
-                        child: Column(
-                          children: [
-                            for (final option in result.options) ...[
-                              _DimensioningOptionTile(
-                                option: option,
-                                isSelected:
-                                    option.inverter.id == _selectedInverterId,
-                                onTap: () {
-                                  setState(() {
-                                    _selectedInverterId = option.inverter.id;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SectionCard(
-                        title: 'Cierre de Fase 6',
-                        subtitle:
-                            'La fase técnica base queda lista para conectar estructura, cotización económica y PDF.',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _InfoRow(
-                              icon: Icons.check_circle_outline,
-                              text:
-                                  'Ya hay flujo completo: panel real, inversor, strings, fusible DC, cable DC, tubería, lado AC básico y snapshot técnico.',
-                            ),
-                            const SizedBox(height: 8),
-                            const _InfoRow(
-                              icon: Icons.save_outlined,
-                              text:
-                                  'El guardado permanente del snapshot se recomienda hacerlo cuando definamos la estructura final de cotización técnica/PDF.',
-                            ),
-                            const SizedBox(height: 14),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: selectedOption == null
-                                    ? null
-                                    : () {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Fase 6 cerrada a nivel funcional preliminar.',
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                icon: const Icon(Icons.check_circle_outline),
-                                label: const Text('Marcar revisión técnica OK'),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () =>
-                                    context.go(AppRoutes.seleccionTecnica),
-                                icon: const Icon(Icons.edit_outlined),
-                                label: const Text('Editar selección técnica'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ],
                   );
                 },
@@ -346,13 +314,178 @@ class _DimensionamientoElectricoScreenState
     );
   }
 
-  void _ensureSelectedInverter(ElectricalDimensioningResult result) {
-    if (_selectedInverterId != null &&
-        _findOptionByInverterId(result.options, _selectedInverterId) != null) {
-      return;
-    }
+  Future<void> _openInverterSelector({
+    required ElectricalDimensioningResult result,
+  }) async {
+    final searchController = TextEditingController();
+    var filter = _InverterFilter.recommended;
+    String? expandedId = _selectedInverterId ?? result.bestOption?.inverter.id;
 
-    _selectedInverterId = result.bestOption?.inverter.id;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final visibleOptions = _filteredInverterOptions(
+              result: result,
+              filter: filter,
+              query: searchController.text,
+            );
+
+            return FractionallySizedBox(
+              heightFactor: 0.9,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Seleccionar inversor',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Cerrar',
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: searchController,
+                      decoration: const InputDecoration(
+                        labelText: 'Buscar marca o modelo',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (_) => setModalState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Recomendados'),
+                          selected: filter == _InverterFilter.recommended,
+                          onSelected: (_) => setModalState(() {
+                            filter = _InverterFilter.recommended;
+                          }),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Compatibles'),
+                          selected: filter == _InverterFilter.compatible,
+                          onSelected: (_) => setModalState(() {
+                            filter = _InverterFilter.compatible;
+                          }),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Todos'),
+                          selected: filter == _InverterFilter.all,
+                          onSelected: (_) => setModalState(() {
+                            filter = _InverterFilter.all;
+                          }),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${visibleOptions.length} opción${visibleOptions.length == 1 ? '' : 'es'}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: visibleOptions.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No hay inversores para este filtro.',
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: visibleOptions.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final option = visibleOptions[index];
+
+                                return _DimensioningOptionTile(
+                                  option: option,
+                                  isSelected:
+                                      option.inverter.id == _selectedInverterId,
+                                  isExpanded: option.inverter.id == expandedId,
+                                  onToggleDetails: () {
+                                    setModalState(() {
+                                      expandedId =
+                                          expandedId == option.inverter.id
+                                              ? null
+                                              : option.inverter.id;
+                                    });
+                                  },
+                                  onSelect: option.isCompatible
+                                      ? () {
+                                          setState(() {
+                                            _selectedInverterId =
+                                                option.inverter.id;
+                                            _expandedInverterId = null;
+                                          });
+                                          Navigator.of(sheetContext).pop();
+                                        }
+                                      : null,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    searchController.dispose();
+  }
+
+  List<ElectricalDimensioningOption> _filteredInverterOptions({
+    required ElectricalDimensioningResult result,
+    required _InverterFilter filter,
+    required String query,
+  }) {
+    final normalizedQuery = query.trim().toLowerCase();
+    final matched = result.options.where((option) {
+      return normalizedQuery.isEmpty ||
+          option.inverter.displayName.toLowerCase().contains(normalizedQuery);
+    }).toList();
+
+    switch (filter) {
+      case _InverterFilter.recommended:
+        final recommended = matched
+            .where((option) => option.isCompatible && option.isRecommendedUsage)
+            .toList();
+
+        if (recommended.isNotEmpty) return recommended;
+
+        final bestOption = result.bestOption;
+        if (bestOption == null || !matched.contains(bestOption)) return [];
+        return [bestOption];
+      case _InverterFilter.compatible:
+        return matched.where((option) => option.isCompatible).toList();
+      case _InverterFilter.all:
+        return matched;
+    }
   }
 
   ElectricalDimensioningOption? _findOptionByInverterId(
@@ -404,7 +537,7 @@ class _DimensionamientoElectricoScreenState
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Snapshot técnico copiado.'),
+        content: Text('Resumen técnico copiado.'),
       ),
     );
   }
@@ -419,7 +552,7 @@ class _DimensionamientoElectricoScreenState
     final conduit = selectedOption.dcConduitRecommendation;
 
     return [
-      'SNAPSHOT TÉCNICO PRELIMINAR MACBEC SOLAR',
+      'RESUMEN TÉCNICO MACBEC SOLAR',
       'Panel: ${selectedPanel.displayName}',
       'Paneles requeridos: ${(selectedOption.totalPanelPowerWatts / selectedPanel.powerWatts).round()}',
       'Potencia FV total: ${selectedOption.totalPanelPowerWatts.toStringAsFixed(0)} W',
@@ -430,15 +563,14 @@ class _DimensionamientoElectricoScreenState
       'Paneles/string máx.: ${selectedOption.maxPanelsPerString ?? '-'}',
       'Strings requeridos: ${selectedOption.requiredStrings ?? '-'}',
       if (fuse != null)
-        'Fusible DC preliminar: ${fuse.suggestedCommercialFuseAmps} A (${fuse.formulaLabel})',
-      if (cable != null) 'Cable DC preliminar: ${cable.summaryLabel}',
-      if (conduit != null)
-        'Tubería DC preliminar: ${conduit.suggestedConduitTradeSize}',
+        'Fusible DC: ${fuse.suggestedCommercialFuseAmps} A (${fuse.formulaLabel})',
+      if (cable != null) 'Cable DC: ${cable.summaryLabel}',
+      if (conduit != null) 'Tubería DC: ${conduit.suggestedConduitTradeSize}',
       if (acRecommendation != null)
-        'Cable AC preliminar: ${acRecommendation.summaryLabel}',
+        'Cable AC: ${acRecommendation.summaryLabel}',
       if (acRecommendation != null)
         'Lado AC: ${acRecommendation.distanceMeters.toStringAsFixed(1)} m, ${acRecommendation.phaseType.label}, ${acRecommendation.voltage.toStringAsFixed(0)} V, ${acRecommendation.material.label}',
-      'Nota: cálculo preliminar sujeto a validación normativa, datasheets completos, temperatura, canalización, caída de tensión y criterio técnico final.',
+      'Validar con fichas técnicas y criterios finales de ingeniería.',
     ];
   }
 
@@ -531,14 +663,8 @@ class _DimensioningSummary extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _ResultTile(
-          icon: Icons.electrical_services_outlined,
-          title: 'Compatibles completas',
-          value: '${result.compatibleOptions.length}',
-        ),
-        const SizedBox(height: 10),
-        _ResultTile(
           icon: Icons.fact_check_outlined,
-          title: 'Voc / Isc panel',
+          title: 'Voc / Isc',
           value:
               '${selectedPanel.voc?.toStringAsFixed(2) ?? '-'} V / ${selectedPanel.isc?.toStringAsFixed(2) ?? '-'} A',
         ),
@@ -547,51 +673,8 @@ class _DimensioningSummary extends StatelessWidget {
   }
 }
 
-class _SelectedInverterCard extends StatelessWidget {
-  const _SelectedInverterCard({
-    required this.option,
-  });
-
-  final ElectricalDimensioningOption option;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _InfoRow(
-          icon: Icons.check_circle_outline,
-          text: '${option.requiredInverters} × ${option.inverter.displayName}',
-        ),
-        const SizedBox(height: 8),
-        _InfoRow(
-          icon: Icons.speed_outlined,
-          text:
-              'Uso del inversor: ${option.inverterUsagePercent.toStringAsFixed(1)}%. Reserva disponible: ${option.reserveCapacityPercent.toStringAsFixed(1)}%.',
-        ),
-        const SizedBox(height: 8),
-        _InfoRow(
-          icon: Icons.bolt_outlined,
-          text:
-              'Capacidad FV total: ${option.totalPvCapacityWatts.toStringAsFixed(0)} W para ${option.totalPanelPowerWatts.toStringAsFixed(0)} W de paneles.',
-        ),
-        if (option.maxPanelsPerString != null) ...[
-          const SizedBox(height: 8),
-          _InfoRow(
-            icon: Icons.schema_outlined,
-            text:
-                'Máximo aproximado por string: ${option.maxPanelsPerString}. Strings requeridos: ${option.requiredStrings ?? '-'}.',
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 class _DcProtectionAndCableCard extends StatelessWidget {
-  const _DcProtectionAndCableCard({
-    required this.option,
-  });
+  const _DcProtectionAndCableCard({required this.option});
 
   final ElectricalDimensioningOption option;
 
@@ -604,67 +687,34 @@ class _DcProtectionAndCableCard extends StatelessWidget {
     if (fuse == null) {
       return const _InfoRow(
         icon: Icons.warning_amber_outlined,
-        text:
-            'No se puede calcular fusible, cable ni tubería porque el panel seleccionado no tiene Isc válido.',
+        text: 'Faltan datos del panel para calcular la protección DC.',
       );
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ResultTile(
           icon: Icons.security_outlined,
-          title: 'Fusible DC sugerido',
+          title: 'Fusible DC',
           value: '${fuse.suggestedCommercialFuseAmps} A',
           isMainResult: true,
-        ),
-        const SizedBox(height: 10),
-        _ResultTile(
-          icon: Icons.calculate_outlined,
-          title: 'Fórmula fusible',
-          value: fuse.formulaLabel,
         ),
         if (cable != null) ...[
           const SizedBox(height: 10),
           _ResultTile(
             icon: Icons.cable_outlined,
-            title: 'Cable DC preliminar',
+            title: 'Cable DC',
             value: '${cable.suggestedAwg} AWG',
-            isMainResult: true,
-          ),
-          const SizedBox(height: 10),
-          _InfoRow(
-            icon: Icons.electric_bolt_outlined,
-            text:
-                'Corriente de diseño: ${cable.designCurrentAmps.toStringAsFixed(2)} A. Ampacidad preliminar del cable: ${cable.ampacityAmps} A.',
-          ),
-          const SizedBox(height: 8),
-          _InfoRow(
-            icon: Icons.schema_outlined,
-            text:
-                '${cable.requiredStrings} string(s) × ${cable.conductorsPerString} conductores = ${cable.totalConductors} conductores DC aproximados.',
           ),
         ],
         if (conduit != null) ...[
           const SizedBox(height: 10),
           _ResultTile(
             icon: Icons.water_drop_outlined,
-            title: 'Tubería preliminar',
+            title: 'Tubería',
             value: conduit.suggestedConduitTradeSize,
-            isMainResult: true,
-          ),
-          const SizedBox(height: 8),
-          _InfoRow(
-            icon: Icons.info_outline,
-            text: conduit.note,
           ),
         ],
-        const SizedBox(height: 10),
-        const _InfoRow(
-          icon: Icons.warning_amber_outlined,
-          text:
-              'Cable y tubería son preliminares. Después se conectarán a las referencias técnicas reales de ampacidad y llenado.',
-        ),
       ],
     );
   }
@@ -768,7 +818,7 @@ class _AcSideCard extends StatelessWidget {
         else ...[
           _ResultTile(
             icon: Icons.cable_outlined,
-            title: 'Cable AC preliminar',
+            title: 'Cable AC',
             value: '${acRecommendation.suggestedAwg} AWG',
             isMainResult: true,
           ),
@@ -783,7 +833,7 @@ class _AcSideCard extends StatelessWidget {
           _InfoRow(
             icon: Icons.electric_bolt_outlined,
             text:
-                'Corriente máxima de salida usada: ${acRecommendation.currentAmps.toStringAsFixed(2)} A. Ampacidad preliminar: ${acRecommendation.ampacityAmps} A.',
+                'Corriente máxima: ${acRecommendation.currentAmps.toStringAsFixed(2)} A · Ampacidad: ${acRecommendation.ampacityAmps} A.',
           ),
           const SizedBox(height: 8),
           _InfoRow(
@@ -791,16 +841,10 @@ class _AcSideCard extends StatelessWidget {
                 ? Icons.check_circle_outline
                 : Icons.warning_amber_outlined,
             text: acRecommendation.isVoltageDropOk
-                ? 'La caída preliminar cumple el objetivo menor o igual a 3%.'
-                : 'La caída preliminar supera 3%. Revisar calibre, distancia o configuración.',
+                ? 'Caída de tensión dentro del objetivo.'
+                : 'La caída supera 3%. Revisa calibre o distancia.',
           ),
         ],
-        const SizedBox(height: 10),
-        const _InfoRow(
-          icon: Icons.info_outline,
-          text:
-              'Este lado AC es preliminar. Debe validarse con norma, temperatura, canalización, método de instalación y criterios finales de ingeniería.',
-        ),
       ],
     );
   }
@@ -850,30 +894,28 @@ class _TechnicalSnapshotCard extends StatelessWidget {
           const SizedBox(height: 8),
           _InfoRow(
             icon: Icons.security_outlined,
-            text:
-                'Fusible DC preliminar: ${fuse.suggestedCommercialFuseAmps} A.',
+            text: 'Fusible DC: ${fuse.suggestedCommercialFuseAmps} A.',
           ),
         ],
         if (dcCable != null) ...[
           const SizedBox(height: 8),
           _InfoRow(
             icon: Icons.cable_outlined,
-            text: 'Cable DC preliminar: ${dcCable.summaryLabel}.',
+            text: 'Cable DC: ${dcCable.summaryLabel}.',
           ),
         ],
         if (conduit != null) ...[
           const SizedBox(height: 8),
           _InfoRow(
             icon: Icons.water_drop_outlined,
-            text:
-                'Tubería DC preliminar: ${conduit.suggestedConduitTradeSize}.',
+            text: 'Tubería DC: ${conduit.suggestedConduitTradeSize}.',
           ),
         ],
         if (acCable != null) ...[
           const SizedBox(height: 8),
           _InfoRow(
             icon: Icons.bolt_outlined,
-            text: 'Cable AC preliminar: ${acCable.summaryLabel}.',
+            text: 'Cable AC: ${acCable.summaryLabel}.',
           ),
         ],
         const SizedBox(height: 14),
@@ -882,7 +924,7 @@ class _TechnicalSnapshotCard extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: onCopy,
             icon: const Icon(Icons.copy_outlined),
-            label: const Text('Copiar snapshot técnico'),
+            label: const Text('Copiar resumen técnico'),
           ),
         ),
       ],
@@ -890,16 +932,26 @@ class _TechnicalSnapshotCard extends StatelessWidget {
   }
 }
 
+enum _InverterFilter {
+  recommended,
+  compatible,
+  all,
+}
+
 class _DimensioningOptionTile extends StatelessWidget {
   const _DimensioningOptionTile({
     required this.option,
     required this.isSelected,
-    required this.onTap,
+    required this.isExpanded,
+    required this.onToggleDetails,
+    required this.onSelect,
   });
 
   final ElectricalDimensioningOption option;
   final bool isSelected;
-  final VoidCallback onTap;
+  final bool isExpanded;
+  final VoidCallback onToggleDetails;
+  final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -915,74 +967,73 @@ class _DimensioningOptionTile extends StatelessWidget {
                     ? theme.colorScheme.secondary
                     : theme.colorScheme.error;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color:
-              theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withValues(alpha: isSelected ? 0.9 : 0.25),
-            width: isSelected ? 2 : 1,
-          ),
+    final statusText = option.isCompatible
+        ? 'Uso FV: ${option.inverterUsagePercent.toStringAsFixed(1)}% · ${option.usageLabel}'
+        : option.statusLabel;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withValues(alpha: isSelected ? 0.9 : 0.25),
+          width: isSelected ? 2 : 1,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: color.withValues(alpha: 0.12),
-                  foregroundColor: color,
-                  child: Icon(
-                    isSelected
-                        ? Icons.radio_button_checked
-                        : option.isRecommendedUsage && option.isCompatible
-                            ? Icons.recommend_outlined
-                            : option.isCompatible
-                                ? Icons.check_circle_outline
-                                : Icons.info_outline,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    option.inverter.displayName,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  Chip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(
-                      'Seleccionado',
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              option.statusLabel,
-              style: theme.textTheme.bodyMedium?.copyWith(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isSelected
+                    ? Icons.radio_button_checked
+                    : option.isCompatible
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
                 color: color,
-                fontWeight: FontWeight.w600,
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  option.inverter.displayName,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label:
+                      Text('Seleccionado', style: theme.textTheme.labelSmall),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            statusText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 8),
+          ),
+          if (!option.isCompatible && option.isPowerCompatible) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Uso FV: ${option.inverterUsagePercent.toStringAsFixed(1)}% · ${option.usageLabel}',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          if (isExpanded) ...[
+            const SizedBox(height: 12),
             _UsageBar(option: option),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               [
                 '${option.requiredInverters} inversor(es)',
-                'Uso ${option.inverterUsagePercent.toStringAsFixed(1)}%',
-                'Reserva ${option.reserveCapacityPercent.toStringAsFixed(1)}%',
                 'Capacidad ${option.totalPvCapacityWatts.toStringAsFixed(0)} W',
                 if (option.inverter.purchasePrice != null)
                   '\$${option.inverter.purchasePrice!.toStringAsFixed(2)} compra c/u',
@@ -991,69 +1042,50 @@ class _DimensioningOptionTile extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _TechnicalMiniSummary(option: option),
-            if (option.dcFuseRecommendation != null ||
-                option.dcCableRecommendation != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                [
-                  if (option.dcFuseRecommendation != null)
-                    'Fusible ${option.dcFuseRecommendation!.suggestedCommercialFuseAmps} A',
-                  if (option.dcCableRecommendation != null)
-                    'Cable ${option.dcCableRecommendation!.suggestedAwg} AWG',
-                  if (option.dcConduitRecommendation != null)
-                    'Tubería ${option.dcConduitRecommendation!.suggestedConduitTradeSize}',
-                ].join(' • '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
             if (option.warnings.isNotEmpty) ...[
               const SizedBox(height: 8),
-              for (final warning in option.warnings.take(2)) ...[
-                Text(
-                  '• $warning',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
+              for (final warning in option.warnings.take(2))
+                Text('• $warning', style: theme.textTheme.bodySmall),
             ],
           ],
-        ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: onToggleDetails,
+                icon: Icon(
+                  isExpanded ? Icons.expand_less : Icons.expand_more,
+                ),
+                label: Text(isExpanded ? 'Ocultar detalles' : 'Ver detalles'),
+              ),
+              const Spacer(),
+              FilledButton.tonal(
+                onPressed: isSelected ? null : onSelect,
+                child: Text(isSelected ? 'Seleccionado' : 'Seleccionar'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
 class _UsageBar extends StatelessWidget {
-  const _UsageBar({
-    required this.option,
-  });
+  const _UsageBar({required this.option});
 
   final ElectricalDimensioningOption option;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final progress = (option.inverterUsagePercent / 100).clamp(0.0, 1.0);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          option.usageLabel,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 8,
-          ),
-        ),
-      ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+        value: progress,
+        minHeight: 8,
+      ),
     );
   }
 }

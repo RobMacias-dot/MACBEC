@@ -2,8 +2,6 @@ import 'dart:math';
 
 import '../../analisis_energetico/domain/entities/quotation_draft_pv_calculation.dart';
 import '../../catalogo_tecnico/domain/entities/solar_panel.dart';
-import '../../dimensionamiento_electrico/domain/electrical_dimensioning_rules.dart';
-import '../../catalogo_tecnico/domain/entities/solar_inverter.dart';
 
 class TechnicalPanelSelectionResult {
   const TechnicalPanelSelectionResult({
@@ -27,27 +25,12 @@ class TechnicalPanelSelectionResult {
   final double totalPanelPowerWatts;
 }
 
-class TechnicalSelectionResult {
-  const TechnicalSelectionResult({
-    required this.panelResult,
-    required this.dimensioningResult,
-  });
-
-  final TechnicalPanelSelectionResult panelResult;
-  final ElectricalDimensioningResult dimensioningResult;
-
-  ElectricalDimensioningOption? get bestInverterOption {
-    return dimensioningResult.bestOption;
-  }
-}
-
 class TechnicalSelectionRules {
   const TechnicalSelectionRules._();
 
-  static TechnicalSelectionResult calculate({
+  static TechnicalPanelSelectionResult calculatePanel({
     required QuotationDraftPvCalculation pvCalculation,
     required SolarPanel selectedPanel,
-    required List<SolarInverter> inverters,
   }) {
     final generationPerPanelKwhDay = (selectedPanel.powerWatts *
             pvCalculation.peakSunHours *
@@ -62,7 +45,7 @@ class TechnicalSelectionRules {
                 .ceil(),
           );
 
-    final panelResult = TechnicalPanelSelectionResult(
+    return TechnicalPanelSelectionResult(
       panel: selectedPanel,
       annualConsumptionKwh: pvCalculation.annualConsumptionKwh,
       dailyConsumptionKwh: pvCalculation.dailyConsumptionKwh,
@@ -71,19 +54,6 @@ class TechnicalSelectionRules {
       generationPerPanelKwhDay: generationPerPanelKwhDay,
       requiredPanels: requiredPanels,
       totalPanelPowerWatts: requiredPanels * selectedPanel.powerWatts,
-    );
-
-    final dimensioningResult = ElectricalDimensioningRules.calculate(
-      ElectricalDimensioningInput(
-        requiredPanels: requiredPanels,
-        panelPowerWatts: selectedPanel.powerWatts,
-        inverters: inverters,
-      ),
-    );
-
-    return TechnicalSelectionResult(
-      panelResult: panelResult,
-      dimensioningResult: dimensioningResult,
     );
   }
 }

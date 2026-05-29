@@ -38,7 +38,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Gestión local-first de clientes, proyectos solares, cotizaciones y expedientes.',
+                'Gestión de clientes, proyectos solares, cotizaciones y expedientes.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

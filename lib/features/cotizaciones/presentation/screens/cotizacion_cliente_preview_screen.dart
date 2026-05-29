@@ -7,9 +7,9 @@ class CotizacionClientePreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return const AppScaffold(
       title: 'Vista cliente',
-      child: const EmptyState(
+      child: EmptyState(
         title: 'Vista cliente',
         message: 'Esta vista ocultará costos internos, utilidad y margen.',
         icon: Icons.picture_as_pdf_outlined,

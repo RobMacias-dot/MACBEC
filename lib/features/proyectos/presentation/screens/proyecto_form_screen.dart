@@ -7,11 +7,12 @@ class ProyectoFormScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return const AppScaffold(
       title: 'Proyecto',
-      child: const EmptyState(
+      child: EmptyState(
         title: 'Formulario de proyecto',
-        message: 'Aquí se creará o editará un proyecto solar asociado a un cliente.',
+        message:
+            'Aquí se creará o editará un proyecto solar asociado a un cliente.',
         icon: Icons.add_home_work_outlined,
       ),
     );

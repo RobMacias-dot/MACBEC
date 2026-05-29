@@ -5,7 +5,8 @@ import '../../../data/local/database/app_database.dart' as db;
 import '../../../data/local/database/database_provider.dart';
 import '../domain/entities/company_profile.dart';
 
-final companySettingsRepositoryProvider = Provider<CompanySettingsRepository>((ref) {
+final companySettingsRepositoryProvider =
+    Provider<CompanySettingsRepository>((ref) {
   return CompanySettingsRepository(
     database: ref.watch(appDatabaseProvider),
   );
@@ -40,17 +41,18 @@ class CompanySettingsRepository {
     final now = DateTime.now();
 
     if (existingProfile == null) {
-      final inserted = await _database.into(_database.companySettings).insertReturning(
-            db.CompanySettingsCompanion.insert(
-              companyName: profile.companyName.trim(),
-              rfc: Value(_emptyToNull(profile.rfc)),
-              phone: Value(_emptyToNull(profile.phone)),
-              email: Value(_emptyToNull(profile.email)),
-              address: Value(_emptyToNull(profile.address)),
-              createdAt: Value(now),
-              updatedAt: Value(now),
-            ),
-          );
+      final inserted =
+          await _database.into(_database.companySettings).insertReturning(
+                db.CompanySettingsCompanion.insert(
+                  companyName: profile.companyName.trim(),
+                  rfc: Value(_emptyToNull(profile.rfc)),
+                  phone: Value(_emptyToNull(profile.phone)),
+                  email: Value(_emptyToNull(profile.email)),
+                  address: Value(_emptyToNull(profile.address)),
+                  createdAt: Value(now),
+                  updatedAt: Value(now),
+                ),
+              );
 
       return _toProfile(inserted);
     }

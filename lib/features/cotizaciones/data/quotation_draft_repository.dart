@@ -165,12 +165,12 @@ class QuotationDraftRepository {
       );
     }
 
-        var nextStatus = draft.status;
+    var nextStatus = draft.status;
 
-        if (draft.status == quotation_entity.QuotationDraftStatus.receiptPending ||
-            draft.status == quotation_entity.QuotationDraftStatus.receiptReceived) {
-          nextStatus = quotation_entity.QuotationDraftStatus.inAnalysis;
-        }
+    if (draft.status == quotation_entity.QuotationDraftStatus.receiptPending ||
+        draft.status == quotation_entity.QuotationDraftStatus.receiptReceived) {
+      nextStatus = quotation_entity.QuotationDraftStatus.inAnalysis;
+    }
 
     await (_database.update(_database.quotationDrafts)
           ..where((table) => table.id.equals(input.draftId)))

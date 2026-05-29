@@ -8,6 +8,7 @@ final clientRepositoryProvider = Provider<ClientRepository>((ref) {
   return ClientRepository(ref.watch(appDatabaseProvider));
 });
 
-final clientsControllerProvider = FutureProvider<List<client_entity.Client>>((ref) async {
+final clientsControllerProvider =
+    FutureProvider<List<client_entity.Client>>((ref) async {
   return ref.watch(clientRepositoryProvider).getAll();
 });

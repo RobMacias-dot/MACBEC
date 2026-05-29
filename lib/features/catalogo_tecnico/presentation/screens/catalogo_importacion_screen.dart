@@ -740,7 +740,7 @@ class _CatalogoImportacionScreenState
       if (!_isImportEnabledForCategory(normalizedCategory)) {
         if (categoryCounts[normalizedCategory] == 1) {
           warnings.add(
-            '${_catalogCategoryLabel(normalizedCategory)} detectado como "${_catalogCategoryStatusText(normalizedCategory)}". No se importará en esta fase.',
+            '${_catalogCategoryLabel(normalizedCategory)} detectado como "${_catalogCategoryStatusText(normalizedCategory)}". No está disponible para importación.',
           );
         }
 
@@ -1229,15 +1229,14 @@ class _ImportPreviewCard extends StatelessWidget {
           const SizedBox(height: 14),
           const _ImportInfoRow(
             icon: Icons.check_circle_outline,
-            text:
-                'Importación activa en esta fase: paneles solares e inversores.',
+            text: 'Importación disponible: paneles solares e inversores.',
           ),
           if (hasCommercialPending) ...[
             const SizedBox(height: 8),
             const _ImportInfoRow(
               icon: Icons.storefront_outlined,
               text:
-                  'Productos comerciales pendientes: se detectan, pero no se importan hasta que su módulo esté listo.',
+                  'Las demás categorías se detectan, pero aún no están disponibles para importación.',
             ),
           ],
           if (hasTechnicalReferences) ...[

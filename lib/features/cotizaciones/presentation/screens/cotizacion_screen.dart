@@ -33,10 +33,6 @@ class CotizacionScreen extends ConsumerWidget {
         children: [
           SectionCard(
             title: 'Cotización provisional',
-            subtitle:
-                'Primero se identifica el prospecto, después se captura el recibo CFE, '
-                'se analiza el consumo y se genera una propuesta. El expediente formal '
-                'se crea cuando el cliente acepta.',
             trailing: _StatusChip(
               label: hasProspect ? 'En proceso' : 'Pendiente',
             ),
@@ -170,34 +166,6 @@ class CotizacionScreen extends ConsumerWidget {
                   },
                 );
               },
-            ),
-          ),
-          const SizedBox(height: 16),
-          const SectionCard(
-            title: 'Cierre de Fase 2',
-            subtitle:
-                'Con esto dejamos preparada la gestión comercial base para entrar mañana a Recibo CFE.',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _InfoRow(
-                  icon: Icons.check_circle_outline,
-                  text:
-                      'Clientes formales se mantienen separados de prospectos.',
-                ),
-                SizedBox(height: 10),
-                _InfoRow(
-                  icon: Icons.check_circle_outline,
-                  text:
-                      'Los prospectos pendientes se guardan localmente en SQLite.',
-                ),
-                SizedBox(height: 10),
-                _InfoRow(
-                  icon: Icons.check_circle_outline,
-                  text:
-                      'El recibo CFE se conectará al borrador activo en la siguiente fase.',
-                ),
-              ],
             ),
           ),
         ],
@@ -620,39 +588,6 @@ class _DraftsErrorView extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.text,
-  });
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 22,
-          color: theme.colorScheme.primary,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ),
-      ],
     );
   }
 }

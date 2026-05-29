@@ -5,7 +5,8 @@ import '../domain/entities/company_profile.dart';
 import 'company_settings_state.dart';
 
 final companySettingsControllerProvider =
-    StateNotifierProvider<CompanySettingsController, CompanySettingsState>((ref) {
+    StateNotifierProvider<CompanySettingsController, CompanySettingsState>(
+        (ref) {
   return CompanySettingsController(
     repository: ref.watch(companySettingsRepositoryProvider),
   );

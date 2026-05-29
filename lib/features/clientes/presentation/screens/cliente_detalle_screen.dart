@@ -7,11 +7,12 @@ class ClienteDetalleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return const AppScaffold(
       title: 'Detalle de cliente',
-      child: const EmptyState(
+      child: EmptyState(
         title: 'Detalle de cliente',
-        message: 'Aquí se verá el cliente, sus proyectos, datos fiscales y expediente.',
+        message:
+            'Aquí se verá el cliente, sus proyectos, datos fiscales y expediente.',
         icon: Icons.person_outline,
       ),
     );

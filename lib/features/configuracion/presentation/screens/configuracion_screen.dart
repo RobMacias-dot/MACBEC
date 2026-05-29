@@ -14,7 +14,8 @@ class ConfiguracionScreen extends ConsumerStatefulWidget {
   const ConfiguracionScreen({super.key});
 
   @override
-  ConsumerState<ConfiguracionScreen> createState() => _ConfiguracionScreenState();
+  ConsumerState<ConfiguracionScreen> createState() =>
+      _ConfiguracionScreenState();
 }
 
 class _ConfiguracionScreenState extends ConsumerState<ConfiguracionScreen> {
@@ -354,7 +355,7 @@ class _CompanySettingsCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Estos datos se usarán más adelante para cotizaciones, contratos, documentos PDF y pre-factura offline.',
+                'Datos para cotizaciones, contratos, documentos PDF y pre-factura.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),

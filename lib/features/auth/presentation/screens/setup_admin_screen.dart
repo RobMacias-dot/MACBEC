@@ -31,11 +31,12 @@ class _SetupAdminScreenState extends ConsumerState<SetupAdminScreen> {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
-    final success = await ref.read(authControllerProvider.notifier).createInitialAdmin(
-          fullName: _fullNameController.text,
-          email: _emailController.text,
-          pin: _pinController.text,
-        );
+    final success =
+        await ref.read(authControllerProvider.notifier).createInitialAdmin(
+              fullName: _fullNameController.text,
+              email: _emailController.text,
+              pin: _pinController.text,
+            );
 
     if (!mounted) return;
 
@@ -76,15 +77,17 @@ class _SetupAdminScreenState extends ConsumerState<SetupAdminScreen> {
                   children: [
                     Text(
                       'Administrador inicial',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Este usuario será el primer acceso local de MacBec Solar. La app seguirá funcionando sin internet.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                     const SizedBox(height: 24),
@@ -117,8 +120,9 @@ class _SetupAdminScreenState extends ConsumerState<SetupAdminScreen> {
                       validator: (value) {
                         final email = value?.trim() ?? '';
                         if (email.isEmpty) return 'El correo es obligatorio';
-                        final isValidEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                            .hasMatch(email);
+                        final isValidEmail =
+                            RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                .hasMatch(email);
                         if (!isValidEmail) return 'Ingresa un correo válido';
                         return null;
                       },

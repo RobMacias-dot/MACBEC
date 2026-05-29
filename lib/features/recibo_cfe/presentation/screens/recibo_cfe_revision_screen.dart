@@ -114,7 +114,7 @@ class _ReciboCfeRevisionScreenState
                 title: 'Datos del recibo CFE',
                 subtitle: hasSavedReview && !_isEditing
                     ? 'Estos datos ya fueron guardados. Para modificarlos, primero activa la edición.'
-                    : 'Captura manualmente los datos principales. En esta fase todavía no usamos OCR.',
+                    : 'Captura o corrige los datos principales del recibo.',
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -191,8 +191,7 @@ class _ReciboCfeRevisionScreenState
                         textCapitalization: TextCapitalization.characters,
                         decoration: const InputDecoration(
                           labelText: 'Tarifa CFE',
-                          helperText:
-                              'Ejemplo: 1, 1A, 1B, DAC, GDMTO, PDBT.',
+                          helperText: 'Ejemplo: 1, 1A, 1B, DAC, GDMTO, PDBT.',
                           prefixIcon: Icon(Icons.bolt_outlined),
                         ),
                         validator: (value) => _requiredTextValidator(
@@ -319,17 +318,6 @@ class _ReciboCfeRevisionScreenState
                         ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const SectionCard(
-                title: 'Siguiente paso',
-                subtitle:
-                    'Después de guardar estos datos, continuaremos al análisis energético.',
-                child: _InfoRow(
-                  icon: Icons.analytics_outlined,
-                  text:
-                      'Usaremos el consumo capturado para preparar el cálculo energético de la cotización.',
                 ),
               ),
             ],
@@ -608,39 +596,6 @@ class _DraftSummary extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.text,
-  });
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 22,
-          color: theme.colorScheme.primary,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ),
-      ],
     );
   }
 }

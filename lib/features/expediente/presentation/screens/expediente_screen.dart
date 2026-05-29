@@ -7,11 +7,12 @@ class ExpedienteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return const AppScaffold(
       title: 'Expediente',
-      child: const EmptyState(
+      child: EmptyState(
         title: 'Expediente del proyecto',
-        message: 'Aquí se mostrarán documentos, fotos, PDFs, contratos y comprobantes.',
+        message:
+            'Aquí se mostrarán documentos, fotos, PDFs, contratos y comprobantes.',
         icon: Icons.folder_outlined,
       ),
     );

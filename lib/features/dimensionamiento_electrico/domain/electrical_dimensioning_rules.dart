@@ -311,14 +311,14 @@ class ElectricalDimensioningOption {
     }
 
     if (isRecommendedUsage) {
-      return 'Recomendado preliminarmente';
+      return 'Recomendado';
     }
 
     if (isHighUsage) {
       return 'Compatible, revisar margen futuro';
     }
 
-    return 'Compatible preliminarmente';
+    return 'Compatible';
   }
 }
 

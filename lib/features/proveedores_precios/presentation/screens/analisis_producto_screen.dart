@@ -23,13 +23,12 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
         children: [
           SectionCard(
             title: 'Producto individual',
-            subtitle:
-                'Carga una ficha técnica por producto. Esta pantalla deja listo el flujo para analizar paneles e inversores de forma individual.',
+            subtitle: 'Carga la ficha técnica correspondiente al producto.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<_ProductType>(
-                  value: _selectedProductType,
+                  initialValue: _selectedProductType,
                   decoration: const InputDecoration(
                     labelText: 'Tipo de producto',
                     prefixIcon: Icon(Icons.category_outlined),
@@ -74,8 +73,7 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
           const SizedBox(height: 16),
           SectionCard(
             title: 'Campos que se analizarán',
-            subtitle:
-                'La extracción automática se conectará después. Por ahora esta pantalla organiza el flujo para cargar productos uno por uno.',
+            subtitle: 'Selecciona un archivo para asociarlo al producto.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -96,7 +94,7 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
                 const _InfoRow(
                   icon: Icons.info_outline,
                   text:
-                      'Mientras se conecta el análisis automático dentro de la app, puedes usar el Excel actualizado con datasheets para importar datos completos.',
+                      'Verifica que los datos de la ficha técnica sean correctos antes de utilizar el producto en una cotización.',
                 ),
               ],
             ),
@@ -126,7 +124,7 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Datasheet cargado. La extracción automática se conectará en una fase posterior.',
+          'Ficha técnica cargada correctamente.',
         ),
       ),
     );

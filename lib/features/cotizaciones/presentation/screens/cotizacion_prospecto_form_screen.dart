@@ -137,8 +137,7 @@ class _CotizacionProspectoFormScreenState
           children: [
             SectionCard(
               title: 'Datos mínimos del prospecto',
-              subtitle:
-                  'Si el cliente no tiene su recibo CFE en este momento, '
+              subtitle: 'Si el cliente no tiene su recibo CFE en este momento, '
                   'puedes guardar sus datos como pendiente y continuar con otra persona.',
               child: Column(
                 children: [
@@ -220,9 +219,7 @@ class _CotizacionProspectoFormScreenState
                     )
                   : const Icon(Icons.save_outlined),
               label: Text(
-                _isSaving
-                    ? 'Guardando...'
-                    : 'Guardar pendiente de recibo CFE',
+                _isSaving ? 'Guardando...' : 'Guardar pendiente de recibo CFE',
               ),
             ),
             const SizedBox(height: 10),
