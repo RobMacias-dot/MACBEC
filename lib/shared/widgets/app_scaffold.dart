@@ -86,6 +86,8 @@ class AppScaffold extends StatelessWidget {
         return AppRoutes.analisisConsumo;
       case AppRoutes.dimensionamientoElectrico:
         return AppRoutes.seleccionTecnica;
+      case AppRoutes.estructura:
+        return AppRoutes.dimensionamientoElectrico;
       case AppRoutes.proveedores:
         return AppRoutes.dashboard;
       case AppRoutes.importacionCatalogo:

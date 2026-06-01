@@ -20,6 +20,7 @@ class AppRoutes {
   static const analisisConsumo = '/analisis-consumo';
   static const seleccionTecnica = '/cotizacion/seleccion-tecnica';
   static const dimensionamientoElectrico = '/dimensionamiento-electrico';
+  static const estructura = '/estructura';
 
   static const catalogoPaneles = '/catalogo/paneles';
   static const catalogoInversores = '/catalogo/inversores';

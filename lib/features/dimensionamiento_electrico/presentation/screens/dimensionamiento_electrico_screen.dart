@@ -12,6 +12,7 @@ import '../../../catalogo_tecnico/application/inverter_catalog_controller.dart';
 import '../../../catalogo_tecnico/application/panel_catalog_controller.dart';
 import '../../../catalogo_tecnico/domain/entities/solar_panel.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
+import '../../../estructura/domain/structure_design_context.dart';
 import '../../domain/electrical_dimensioning_rules.dart';
 
 class DimensionamientoElectricoScreen extends ConsumerStatefulWidget {
@@ -288,6 +289,29 @@ class _DimensionamientoElectricoScreenState
                               selectedOption: selectedOption,
                               acRecommendation: acRecommendation,
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () => context.push(
+                              AppRoutes.estructura,
+                              extra: StructureDesignContext(
+                                panelName: selectedPanel.displayName,
+                                panelPowerWatts: selectedPanel.powerWatts,
+                                requiredPanels: result.requiredPanels,
+                                totalPvPowerWatts: result.totalPanelPowerWatts,
+                                panelLengthMm: selectedPanel.lengthMm,
+                                panelWidthMm: selectedPanel.widthMm,
+                                inverterName:
+                                    selectedOption.inverter.displayName,
+                                inverterQuantity:
+                                    selectedOption.requiredInverters,
+                              ),
+                            ),
+                            icon: const Icon(Icons.foundation_outlined),
+                            label: const Text('Continuar a estructura'),
                           ),
                         ),
                       ],

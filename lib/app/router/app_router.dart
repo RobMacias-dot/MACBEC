@@ -19,6 +19,8 @@ import '../../features/cotizaciones/presentation/screens/cotizacion_prospecto_fo
 import '../../features/cotizaciones/presentation/screens/cotizacion_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/dimensionamiento_electrico/presentation/screens/dimensionamiento_electrico_screen.dart';
+import '../../features/estructura/domain/structure_design_context.dart';
+import '../../features/estructura/presentation/screens/estructura_screen.dart';
 import '../../features/expediente/presentation/screens/expediente_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/analisis_producto_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/proveedores_screen.dart';
@@ -92,6 +94,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.dimensionamientoElectrico,
         builder: (context, state) => const DimensionamientoElectricoScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.estructura,
+        builder: (context, state) => EstructuraScreen(
+          designContext: state.extra is StructureDesignContext
+              ? state.extra! as StructureDesignContext
+              : null,
+        ),
       ),
       GoRoute(
         path: AppRoutes.catalogoPaneles,
