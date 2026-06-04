@@ -115,12 +115,15 @@ class InclinedFlatRoofResult {
     required this.structuresCount,
     required this.panelsHorizontal,
     required this.panelRows,
+    required this.supportRowCount,
+    required this.supportPointsPerRow,
+    required this.totalLegCount,
+    required this.legHeightsMeters,
     required this.widthMeters,
     required this.inclinedDepthMeters,
     required this.projectedDepthMeters,
     required this.areaMetersSquared,
     required this.frontLegMeters,
-    required this.middleLegMeters,
     required this.rearLegMeters,
     required this.railPiecesCount,
     required this.railPieceLengthMeters,
@@ -128,7 +131,10 @@ class InclinedFlatRoofResult {
     required this.railPlan,
     required this.midClampCount,
     required this.endClampCount,
-    required this.fixingPointCount,
+    required this.fixingPiecesPerTypeCount,
+    required this.largueroPiecesCount,
+    required this.largueroLengthMeters,
+    required this.windBracePiecesCount,
     required this.angleMaterialMeters,
     required this.angleSixMeterSections,
     required this.windBraceLengthMeters,
@@ -140,6 +146,10 @@ class InclinedFlatRoofResult {
   final int structuresCount;
   final int panelsHorizontal;
   final int panelRows;
+  final int supportRowCount;
+  final int supportPointsPerRow;
+  final int totalLegCount;
+  final List<double> legHeightsMeters;
 
   final double widthMeters;
   final double inclinedDepthMeters;
@@ -147,7 +157,6 @@ class InclinedFlatRoofResult {
   final double areaMetersSquared;
 
   final double frontLegMeters;
-  final double middleLegMeters;
   final double rearLegMeters;
 
   final int railPiecesCount;
@@ -156,11 +165,22 @@ class InclinedFlatRoofResult {
   final StructureRailPlan railPlan;
   final int midClampCount;
   final int endClampCount;
-  final int fixingPointCount;
+  final int fixingPiecesPerTypeCount;
+  final int largueroPiecesCount;
+  final double largueroLengthMeters;
+  final int windBracePiecesCount;
 
   final double angleMaterialMeters;
   final int angleSixMeterSections;
   final double windBraceLengthMeters;
+
+  double get middleLegMeters {
+    if (legHeightsMeters.length <= 2) {
+      return (frontLegMeters + rearLegMeters) / 2;
+    }
+
+    return legHeightsMeters[legHeightsMeters.length ~/ 2];
+  }
 
   bool get hasExactPanelDistribution {
     return totalDistributedPanels == requiredPanels;
@@ -175,24 +195,39 @@ class StructureDesignRules {
   static InclinedFlatRoofResult calculateInclinedFlatRoof(
     InclinedFlatRoofInput input,
   ) {
-    final modulesPerStructure = input.panelsHorizontal * input.panelRows;
+    final modulesPerStructure =
+        input.panelsHorizontal * input.panelRows;
     final totalDistributedPanels = modulesPerStructure * input.structuresCount;
 
     final horizontalGaps = max(input.panelsHorizontal - 1, 0);
     final verticalGaps = max(input.panelRows - 1, 0);
-    final widthMeters = ((input.panelsHorizontal * input.panelWidthMm) +
-            (horizontalGaps * input.panelGapMm)) /
-        1000;
-    final inclinedDepthMeters = ((input.panelRows * input.panelLengthMm) +
-            (verticalGaps * input.panelGapMm)) /
-        1000;
+    final widthMeters =
+        ((input.panelsHorizontal * input.panelWidthMm) +
+                (horizontalGaps * input.panelGapMm)) /
+            1000;
+    final inclinedDepthMeters =
+        ((input.panelRows * input.panelLengthMm) +
+                (verticalGaps * input.panelGapMm)) /
+            1000;
 
     final angleRadians = input.inclinationDegrees * pi / 180;
     final verticalRiseMeters = sin(angleRadians) * inclinedDepthMeters;
     final projectedDepthMeters = cos(angleRadians) * inclinedDepthMeters;
     final frontLegMeters = input.frontLegCm / 100;
-    final middleLegMeters = frontLegMeters + (verticalRiseMeters / 2);
     final rearLegMeters = frontLegMeters + verticalRiseMeters;
+
+    final supportRowCount = input.panelRows <= 3
+        ? input.panelRows + 1
+        : input.panelRows + 2;
+    final supportPointsPerRow = max(input.panelsHorizontal - 1, 1);
+    final legHeightsMeters = List<double>.generate(supportRowCount, (index) {
+      final progress = supportRowCount == 1
+          ? 0.0
+          : index / (supportRowCount - 1);
+      return frontLegMeters + (verticalRiseMeters * progress);
+    });
+    final totalLegCount =
+        supportPointsPerRow * supportRowCount * input.structuresCount;
 
     final railPiecesPerStructure = input.panelRows * 2;
     final railPiecesCount = railPiecesPerStructure * input.structuresCount;
@@ -204,24 +239,29 @@ class StructureDesignRules {
         2 *
         input.panelRows *
         input.structuresCount;
-    final endClampCount = 4 * input.panelRows * input.structuresCount;
+    final endClampCount = 4 * input.structuresCount;
 
-    final supportPointsPerLine = max(input.panelsHorizontal - 1, 1);
-    final fixingPointCount = supportPointsPerLine * 3 * input.structuresCount;
     final spacingBetweenSupports = input.panelsHorizontal > 1
         ? widthMeters / (input.panelsHorizontal - 1)
         : widthMeters;
     final windBraceLengthMeters =
         sqrt(pow(rearLegMeters, 2) + pow(spacingBetweenSupports, 2)) + 0.10;
+    final windBracePiecesCount = 2 * input.structuresCount;
 
-    final legsMetersPerStructure = supportPointsPerLine *
-        (frontLegMeters + middleLegMeters + rearLegMeters);
-    final longitudinalMetersPerStructure = (inclinedDepthMeters + 0.10) * 3;
+    final legsMetersPerStructure =
+        supportPointsPerRow * legHeightsMeters.fold<double>(0, (a, b) => a + b);
+    final largueroPiecesPerStructure = supportRowCount;
+    final largueroPiecesCount = largueroPiecesPerStructure * input.structuresCount;
+    final largueroLengthMeters = inclinedDepthMeters + 0.10;
+    final longitudinalMetersPerStructure =
+        largueroLengthMeters * largueroPiecesPerStructure;
     final windBracesMetersPerStructure = windBraceLengthMeters * 2;
-    final angleMaterialMeters = (legsMetersPerStructure +
-            longitudinalMetersPerStructure +
-            windBracesMetersPerStructure) *
-        input.structuresCount;
+    final angleMaterialMeters =
+        (legsMetersPerStructure +
+                longitudinalMetersPerStructure +
+                windBracesMetersPerStructure) *
+            input.structuresCount;
+    final fixingPiecesPerTypeCount = totalLegCount * 2;
 
     return InclinedFlatRoofResult(
       requiredPanels: input.requiredPanels,
@@ -230,12 +270,15 @@ class StructureDesignRules {
       structuresCount: input.structuresCount,
       panelsHorizontal: input.panelsHorizontal,
       panelRows: input.panelRows,
+      supportRowCount: supportRowCount,
+      supportPointsPerRow: supportPointsPerRow,
+      totalLegCount: totalLegCount,
+      legHeightsMeters: legHeightsMeters,
       widthMeters: widthMeters,
       inclinedDepthMeters: inclinedDepthMeters,
       projectedDepthMeters: projectedDepthMeters,
       areaMetersSquared: widthMeters * inclinedDepthMeters,
       frontLegMeters: frontLegMeters,
-      middleLegMeters: middleLegMeters,
       rearLegMeters: rearLegMeters,
       railPiecesCount: railPiecesCount,
       railPieceLengthMeters: railPieceLengthMeters,
@@ -243,7 +286,10 @@ class StructureDesignRules {
       railPlan: railPlan,
       midClampCount: midClampCount,
       endClampCount: endClampCount,
-      fixingPointCount: fixingPointCount,
+      fixingPiecesPerTypeCount: fixingPiecesPerTypeCount,
+      largueroPiecesCount: largueroPiecesCount,
+      largueroLengthMeters: largueroLengthMeters,
+      windBracePiecesCount: windBracePiecesCount,
       angleMaterialMeters: angleMaterialMeters,
       angleSixMeterSections: (angleMaterialMeters / 6).ceil(),
       windBraceLengthMeters: windBraceLengthMeters,
@@ -262,8 +308,9 @@ class StructureDesignRules {
       for (var sixCount = 0; sixCount <= maxSix; sixCount++) {
         if (fiveCount == 0 && sixCount == 0) continue;
 
-        final availableMeters = (fiveCount * nominalFiveUsefulMeters) +
-            (sixCount * nominalSixUsefulMeters);
+        final availableMeters =
+            (fiveCount * nominalFiveUsefulMeters) +
+                (sixCount * nominalSixUsefulMeters);
         if (availableMeters < requiredMeters) continue;
 
         final candidate = StructureRailPlan(

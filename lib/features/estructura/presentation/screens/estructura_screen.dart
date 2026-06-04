@@ -301,8 +301,7 @@ class _MountTypeTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-              : theme.colorScheme.surfaceContainerHighest
-                  .withValues(alpha: 0.45),
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected
@@ -512,8 +511,22 @@ class _DistributionResult extends StatelessWidget {
         _ResultTile(
           icon: Icons.grid_view_outlined,
           title: 'Total distribuido',
-          value: '${result.totalDistributedPanels} / ${result.requiredPanels}',
+          value:
+              '${result.totalDistributedPanels} / ${result.requiredPanels}',
           isMainResult: exact,
+        ),
+        const SizedBox(height: 10),
+        _ResultTile(
+          icon: Icons.foundation_outlined,
+          title: 'Filas de patas',
+          value:
+              '${result.supportRowCount} filas · ${result.supportPointsPerRow} patas por fila',
+        ),
+        const SizedBox(height: 10),
+        _ResultTile(
+          icon: Icons.height_outlined,
+          title: 'Patas totales',
+          value: '${result.totalLegCount} piezas',
         ),
         const SizedBox(height: 12),
         Row(
@@ -546,6 +559,10 @@ class _GeometrySummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final legHeightsText = result.legHeightsMeters
+        .map((height) => height.toStringAsFixed(2))
+        .join(' / ');
+
     return Column(
       children: [
         _ResultTile(
@@ -557,9 +574,8 @@ class _GeometrySummary extends StatelessWidget {
         const SizedBox(height: 10),
         _ResultTile(
           icon: Icons.height_outlined,
-          title: 'Patas',
-          value:
-              '${result.frontLegMeters.toStringAsFixed(2)} / ${result.middleLegMeters.toStringAsFixed(2)} / ${result.rearLegMeters.toStringAsFixed(2)} m',
+          title: 'Alturas de patas',
+          value: '$legHeightsText m',
         ),
         const SizedBox(height: 10),
         _ResultTile(
@@ -613,6 +629,28 @@ class _MaterialSummary extends StatelessWidget {
         _MaterialTile(
           label: 'End clamps',
           quantity: '${result.endClampCount} piezas',
+          detail: 'Una pieza por esquina del área de módulos',
+        ),
+        const SizedBox(height: 10),
+        _MaterialTile(
+          label: 'Patas estructurales',
+          quantity: '${result.totalLegCount} piezas',
+          detail:
+              '${result.supportRowCount} filas × ${result.supportPointsPerRow} patas por fila',
+        ),
+        const SizedBox(height: 10),
+        _MaterialTile(
+          label: 'Largueros',
+          quantity: '${result.largueroPiecesCount} piezas',
+          detail:
+              '${result.largueroLengthMeters.toStringAsFixed(2)} m por pieza',
+        ),
+        const SizedBox(height: 10),
+        _MaterialTile(
+          label: 'Rompevientos',
+          quantity: '${result.windBracePiecesCount} piezas',
+          detail:
+              '${result.windBraceLengthMeters.toStringAsFixed(2)} m por pieza',
         ),
         const SizedBox(height: 10),
         _MaterialTile(
@@ -624,8 +662,26 @@ class _MaterialSummary extends StatelessWidget {
         const SizedBox(height: 10),
         _MaterialTile(
           label: fixingType.shortLabel,
-          quantity: '${result.fixingPointCount} puntos',
-          detail: 'Pendiente de precio y especificación final',
+          quantity: '${result.fixingPiecesPerTypeCount} piezas',
+          detail: '2 por pata · pendiente de precio y especificación final',
+        ),
+        const SizedBox(height: 10),
+        _MaterialTile(
+          label: 'Tuercas',
+          quantity: '${result.fixingPiecesPerTypeCount} piezas',
+          detail: '2 por pata',
+        ),
+        const SizedBox(height: 10),
+        _MaterialTile(
+          label: 'Rondanas planas',
+          quantity: '${result.fixingPiecesPerTypeCount} piezas',
+          detail: '2 por pata',
+        ),
+        const SizedBox(height: 10),
+        _MaterialTile(
+          label: 'Rondanas de presión',
+          quantity: '${result.fixingPiecesPerTypeCount} piezas',
+          detail: '2 por pata',
         ),
       ],
     );
@@ -695,8 +751,7 @@ class _SideViewDiagram extends StatelessWidget {
       height: 220,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color:
-            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(16),
       ),
       child: CustomPaint(
@@ -738,58 +793,72 @@ class _SideViewPainter extends CustomPainter {
     final right = size.width - 26;
     final floorY = size.height - 38;
     final availableHeight = floorY - 30;
-    final depth =
-        result.projectedDepthMeters <= 0 ? 1.0 : result.projectedDepthMeters;
+    final depth = result.projectedDepthMeters <= 0
+        ? 1.0
+        : result.projectedDepthMeters;
     final rearHeight = max(result.rearLegMeters, 0.1);
     final horizontalScale = (right - left) / depth;
     final verticalScale = availableHeight / rearHeight;
     final scale = min(horizontalScale, verticalScale);
 
-    final front = Offset(left, floorY - (result.frontLegMeters * scale));
-    final rear = Offset(
-      left + (result.projectedDepthMeters * scale),
-      floorY - (result.rearLegMeters * scale),
-    );
-    final middle = Offset(
-      left + (result.projectedDepthMeters * scale / 2),
-      floorY - (result.middleLegMeters * scale),
-    );
+    final supportPoints = <Offset>[];
+    for (var index = 0; index < result.supportRowCount; index++) {
+      final progress = result.supportRowCount == 1
+          ? 0.0
+          : index / (result.supportRowCount - 1);
+      final height = result.legHeightsMeters[index];
+      supportPoints.add(
+        Offset(
+          left + (result.projectedDepthMeters * scale * progress),
+          floorY - (height * scale),
+        ),
+      );
+    }
 
     canvas.drawLine(
       Offset(left - 10, floorY),
       Offset(right + 4, floorY),
       basePaint,
     );
-    canvas.drawLine(Offset(front.dx, floorY), front, structurePaint);
-    canvas.drawLine(Offset(middle.dx, floorY), middle, structurePaint);
-    canvas.drawLine(Offset(rear.dx, floorY), rear, structurePaint);
-    canvas.drawLine(front, rear, structurePaint);
 
-    _drawText(
-      canvas,
-      'Delantera\n${result.frontLegMeters.toStringAsFixed(2)} m',
-      Offset(front.dx - 10, floorY + 5),
-      textColor,
-      alignRight: true,
-    );
-    _drawText(
-      canvas,
-      'Intermedia\n${result.middleLegMeters.toStringAsFixed(2)} m',
-      Offset(middle.dx, floorY + 5),
-      textColor,
-    );
-    _drawText(
-      canvas,
-      'Trasera\n${result.rearLegMeters.toStringAsFixed(2)} m',
-      Offset(rear.dx, floorY + 5),
-      textColor,
-    );
-    _drawText(
-      canvas,
-      '${result.inclinedDepthMeters.toStringAsFixed(2)} m',
-      Offset((front.dx + rear.dx) / 2 - 22, (front.dy + rear.dy) / 2 - 22),
-      lineColor,
-    );
+    for (final point in supportPoints) {
+      canvas.drawLine(Offset(point.dx, floorY), point, structurePaint);
+    }
+
+    if (supportPoints.length >= 2) {
+      canvas.drawLine(supportPoints.first, supportPoints.last, structurePaint);
+    }
+
+    for (var index = 0; index < supportPoints.length; index++) {
+      final point = supportPoints[index];
+      final label = _supportLabel(index, supportPoints.length);
+      final alignRight = index == 0;
+      _drawText(
+        canvas,
+        '$label\n${result.legHeightsMeters[index].toStringAsFixed(2)} m',
+        Offset(point.dx - (alignRight ? 8 : 0), floorY + 5),
+        textColor,
+        alignRight: alignRight,
+      );
+    }
+
+    if (supportPoints.length >= 2) {
+      final front = supportPoints.first;
+      final rear = supportPoints.last;
+      _drawText(
+        canvas,
+        '${result.inclinedDepthMeters.toStringAsFixed(2)} m',
+        Offset((front.dx + rear.dx) / 2 - 22, (front.dy + rear.dy) / 2 - 22),
+        lineColor,
+      );
+    }
+  }
+
+  String _supportLabel(int index, int total) {
+    if (index == 0) return 'Delantera';
+    if (index == total - 1) return 'Trasera';
+    if (total == 3) return 'Intermedia';
+    return 'Int. $index';
   }
 
   void _drawText(
