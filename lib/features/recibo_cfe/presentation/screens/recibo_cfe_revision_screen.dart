@@ -9,6 +9,7 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/data/quotation_draft_repository.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
+import '../../application/ocr_service.dart';
 
 class ReciboCfeRevisionScreen extends ConsumerStatefulWidget {
   const ReciboCfeRevisionScreen({super.key});
@@ -32,6 +33,7 @@ class _ReciboCfeRevisionScreenState
 
   bool _isSaving = false;
   bool _isEditing = true;
+  bool _usedOcrSuggestion = false;
   String? _prefilledDraftId;
 
   @override
@@ -119,6 +121,34 @@ class _ReciboCfeRevisionScreenState
                   key: _formKey,
                   child: Column(
                     children: [
+                      if (_usedOcrSuggestion && _isEditing) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .tertiaryContainer
+                                .withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.auto_awesome_outlined),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Algunos campos se rellenaron automáticamente '
+                                  'con datos detectados del recibo. Verifica '
+                                  'cada uno antes de guardar.',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       if (hasSavedReview) ...[
                         _SavedReviewNotice(
                           isEditing: _isEditing,
@@ -352,6 +382,42 @@ class _ReciboCfeRevisionScreenState
         _formatNullableNumber(draft.cfeCurrentPeriodKwh);
     _totalToPayController.text = _formatNullableNumber(draft.cfeTotalToPay);
 
+    // Si todavía no hay una revisión guardada, usa la sugerencia de OCR
+    // (si existe) solo para rellenar los campos que sigan vacíos. El
+    // usuario siempre debe revisar y guardar manualmente.
+    if (!draft.hasCompleteCfeReview) {
+      final suggestion = ref.read(cfeOcrSuggestionProvider);
+
+      if (suggestion != null) {
+        if (_serviceAddressController.text.isEmpty &&
+            suggestion.serviceAddress != null) {
+          _serviceAddressController.text = suggestion.serviceAddress!;
+        }
+        if (_rpuController.text.isEmpty && suggestion.rpu != null) {
+          _rpuController.text = suggestion.rpu!;
+        }
+        if (_tariffController.text.isEmpty && suggestion.tariff != null) {
+          _tariffController.text = suggestion.tariff!;
+        }
+        if (_billingPeriodController.text.isEmpty &&
+            suggestion.billingPeriod != null) {
+          _billingPeriodController.text = suggestion.billingPeriod!;
+        }
+        if (_currentPeriodKwhController.text.isEmpty &&
+            suggestion.currentPeriodKwh != null) {
+          _currentPeriodKwhController.text =
+              _formatNullableNumber(suggestion.currentPeriodKwh);
+        }
+        if (_totalToPayController.text.isEmpty &&
+            suggestion.totalToPay != null) {
+          _totalToPayController.text =
+              _formatNullableNumber(suggestion.totalToPay);
+        }
+
+        _usedOcrSuggestion = true;
+      }
+    }
+
     _isEditing = !draft.hasCompleteCfeReview;
     _prefilledDraftId = draft.id;
   }
@@ -392,6 +458,7 @@ class _ReciboCfeRevisionScreenState
           );
 
       ref.invalidate(quotationDraftsControllerProvider);
+      ref.read(cfeOcrSuggestionProvider.notifier).state = null;
 
       if (!mounted) return;
 

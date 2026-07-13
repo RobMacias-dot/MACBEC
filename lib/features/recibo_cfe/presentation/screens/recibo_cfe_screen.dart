@@ -14,6 +14,8 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/data/quotation_draft_repository.dart';
+import '../../application/ocr_service.dart';
+import '../../domain/cfe_receipt_text_parser.dart';
 
 class ReciboCfeScreen extends ConsumerStatefulWidget {
   const ReciboCfeScreen({super.key});
@@ -26,6 +28,7 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isSaving = false;
+  bool _isRunningOcr = false;
   String? _lastSavedFileName;
 
   @override
@@ -90,9 +93,28 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
                 : 'Recibo agregado correctamente.',
             child: _lastSavedFileName == null
                 ? const Text('Selecciona una opción para continuar.')
-                : Chip(
-                    avatar: const Icon(Icons.check_circle_outline),
-                    label: Text('Archivo: $_lastSavedFileName'),
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Chip(
+                        avatar: const Icon(Icons.check_circle_outline),
+                        label: Text('Archivo: $_lastSavedFileName'),
+                      ),
+                      if (_isRunningOcr) ...[
+                        const SizedBox(height: 10),
+                        const Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Detectando datos del recibo...'),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
           ),
         ],
@@ -188,6 +210,11 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
 
       final fileName = p.basename(copiedFile.path);
       final sizeBytes = forcedSizeBytes ?? await copiedFile.length();
+      final mimeType = forcedMimeType ?? _guessMimeType(fileName);
+
+      if (mimeType != null && mimeType.startsWith('image/')) {
+        await _runOcrSuggestion(copiedFile.path);
+      }
 
       await ref.read(quotationDraftRepositoryProvider).attachCfeReceiptDocument(
             AttachCfeReceiptDocumentInput(
@@ -195,7 +222,7 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
               localPath: copiedFile.path,
               fileName: fileName,
               documentType: 'cfe_receipt',
-              mimeType: forcedMimeType ?? _guessMimeType(fileName),
+              mimeType: mimeType,
               sizeBytes: sizeBytes,
             ),
           );
@@ -222,6 +249,34 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
       if (mounted) {
         setState(() {
           _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _runOcrSuggestion(String imagePath) async {
+    setState(() {
+      _isRunningOcr = true;
+    });
+
+    try {
+      final rawText = await ref.read(ocrServiceProvider).extractTextDraft(
+            imagePath,
+          );
+
+      if (rawText == null) return;
+
+      final suggestion = CfeReceiptTextParser.parse(rawText);
+
+      if (!suggestion.isEmpty) {
+        ref.read(cfeOcrSuggestionProvider.notifier).state = suggestion;
+      }
+    } catch (_) {
+      // El OCR es una ayuda opcional: si falla, se sigue con captura manual.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunningOcr = false;
         });
       }
     }
