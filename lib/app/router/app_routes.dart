@@ -33,6 +33,7 @@ class AppRoutes {
   static const cotizacionProspectoForm = '/cotizacion/prospecto-form';
   static const cotizacionInterna = '/cotizacion/interna';
   static const cotizacionClientePreview = '/cotizacion/cliente-preview';
+  static const propuestaTecnica = '/cotizacion/propuesta-tecnica';
 
   static const expediente = '/expediente';
   static const configuracion = '/configuracion';

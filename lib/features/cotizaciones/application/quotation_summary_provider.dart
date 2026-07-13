@@ -12,22 +12,31 @@ import '../../configuracion/domain/entities/commercial_settings.dart';
 import '../../configuracion/domain/entities/company_profile.dart';
 import '../../dimensionamiento_electrico/data/electrical_selection_repository.dart';
 import '../../dimensionamiento_electrico/domain/electrical_dimensioning_rules.dart';
+import '../../dimensionamiento_electrico/domain/entities/electrical_selection.dart';
+import '../../estructura/data/structure_design_repository.dart';
+import '../../estructura/domain/entities/structure_design_selection.dart';
+import '../../estructura/domain/structure_design_rules.dart';
 import '../data/quotation_commercial_repository.dart';
 import '../domain/entities/quotation_commercial_quote.dart';
 import '../domain/entities/quotation_draft.dart';
 import 'quotation_draft_controller.dart';
 
-/// Reúne todo lo necesario para mostrar la cotización interna o la vista de
-/// cliente, sin duplicar la lógica de carga en cada pantalla.
+/// Reúne todo lo necesario para mostrar la cotización interna, la vista de
+/// cliente o la propuesta técnica, sin duplicar la lógica de carga en cada
+/// pantalla.
 class QuotationSummary {
   const QuotationSummary({
     required this.draft,
     required this.pvCalculation,
     required this.panel,
     required this.inverter,
-    required this.requiredInverters,
+    required this.electricalSelection,
+    required this.electricalOption,
     required this.companyProfile,
     required this.commercialSettings,
+    this.acRecommendation,
+    this.structureSelection,
+    this.structureResult,
     this.commercialQuote,
   });
 
@@ -35,10 +44,16 @@ class QuotationSummary {
   final QuotationDraftPvCalculation pvCalculation;
   final SolarPanel panel;
   final SolarInverter inverter;
-  final int requiredInverters;
+  final ElectricalSelection electricalSelection;
+  final ElectricalDimensioningOption electricalOption;
+  final AcCableRecommendation? acRecommendation;
+  final StructureDesignSelection? structureSelection;
+  final InclinedFlatRoofResult? structureResult;
   final CompanyProfile companyProfile;
   final CommercialSettings commercialSettings;
   final QuotationCommercialQuote? commercialQuote;
+
+  int get requiredInverters => electricalOption.requiredInverters;
 }
 
 enum QuotationSummaryIssue {
@@ -111,9 +126,53 @@ final quotationSummaryProvider =
     ),
   );
 
-  final requiredInverters = dimensioningResult.options.isEmpty
-      ? 1
-      : dimensioningResult.options.first.requiredInverters;
+  final electricalOption = dimensioningResult.options.isEmpty
+      ? throw const QuotationSummaryException(
+          QuotationSummaryIssue.missingInverter,
+        )
+      : dimensioningResult.options.first;
+
+  final acMaterial = _acMaterialFromKey(electricalSelection.acMaterial) ??
+      AcConductorMaterial.copper;
+  final acPhaseType = _acPhaseTypeFromKey(electricalSelection.acPhaseType) ??
+      AcPhaseType.bifasic;
+
+  final acRecommendation = (electricalSelection.acDistanceMeters != null &&
+          electricalSelection.acVoltage != null)
+      ? ElectricalDimensioningRules.calculateAcCableRecommendation(
+          option: electricalOption,
+          input: ElectricalAcInput(
+            distanceMeters: electricalSelection.acDistanceMeters!,
+            material: acMaterial,
+            phaseType: acPhaseType,
+            voltage: electricalSelection.acVoltage!,
+          ),
+        )
+      : null;
+
+  final structureSelection = await ref.watch(
+    structureDesignSelectionProvider(draftId).future,
+  );
+
+  InclinedFlatRoofResult? structureResult;
+  if (structureSelection != null &&
+      panel.lengthMm != null &&
+      panel.lengthMm! > 0 &&
+      panel.widthMm != null &&
+      panel.widthMm! > 0) {
+    structureResult = StructureDesignRules.calculateInclinedFlatRoof(
+      InclinedFlatRoofInput(
+        requiredPanels: pvCalculation.requiredPanels,
+        structuresCount: structureSelection.structuresCount,
+        panelsHorizontal: structureSelection.panelsHorizontal,
+        panelRows: structureSelection.panelRows,
+        panelLengthMm: panel.lengthMm!,
+        panelWidthMm: panel.widthMm!,
+        inclinationDegrees: structureSelection.inclinationDegrees,
+        frontLegCm: structureSelection.frontLegCm,
+      ),
+    );
+  }
 
   final companyProfile =
       await ref.watch(companySettingsRepositoryProvider).getCompanyProfile() ??
@@ -132,7 +191,11 @@ final quotationSummaryProvider =
     pvCalculation: pvCalculation,
     panel: panel,
     inverter: inverter,
-    requiredInverters: requiredInverters,
+    electricalSelection: electricalSelection,
+    electricalOption: electricalOption,
+    acRecommendation: acRecommendation,
+    structureSelection: structureSelection,
+    structureResult: structureResult,
     companyProfile: companyProfile,
     commercialSettings: commercialSettings,
     commercialQuote: commercialQuote,
@@ -148,6 +211,26 @@ T? _findById<T>(
 
   for (final item in items) {
     if (idOf(item) == id) return item;
+  }
+
+  return null;
+}
+
+AcConductorMaterial? _acMaterialFromKey(String? key) {
+  if (key == null) return null;
+
+  for (final value in AcConductorMaterial.values) {
+    if (value.name == key) return value;
+  }
+
+  return null;
+}
+
+AcPhaseType? _acPhaseTypeFromKey(String? key) {
+  if (key == null) return null;
+
+  for (final value in AcPhaseType.values) {
+    if (value.name == key) return value;
   }
 
   return null;

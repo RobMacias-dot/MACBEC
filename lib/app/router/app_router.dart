@@ -19,6 +19,7 @@ import '../../features/cotizaciones/presentation/screens/cotizacion_prospecto_fo
 import '../../features/cotizaciones/presentation/screens/cotizacion_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/dimensionamiento_electrico/presentation/screens/dimensionamiento_electrico_screen.dart';
+import '../../features/documentos_pdf/presentation/screens/propuesta_tecnica_screen.dart';
 import '../../features/estructura/domain/structure_design_context.dart';
 import '../../features/estructura/presentation/screens/estructura_screen.dart';
 import '../../features/expediente/presentation/screens/expediente_screen.dart';
@@ -149,6 +150,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.cotizacionClientePreview,
         builder: (context, state) => const CotizacionClientePreviewScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.propuestaTecnica,
+        builder: (context, state) => const PropuestaTecnicaScreen(),
       ),
       GoRoute(
         path: AppRoutes.expediente,

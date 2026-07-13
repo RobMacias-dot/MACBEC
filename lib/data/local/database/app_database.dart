@@ -450,6 +450,21 @@ class QuotationDraftCommercialQuotes extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+class QuotationDraftStructureDesigns extends Table with LocalFirstColumns {
+  TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
+
+  TextColumn get mountType => text()();
+  TextColumn get fixingType => text()();
+  IntColumn get structuresCount => integer()();
+  IntColumn get panelsHorizontal => integer()();
+  IntColumn get panelRows => integer()();
+  RealColumn get inclinationDegrees => real()();
+  RealColumn get frontLegCm => real()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class SyncQueue extends Table with LocalFirstColumns {
   TextColumn get entityType => text()();
   TextColumn get entityId => text()();
@@ -489,6 +504,7 @@ class SyncQueue extends Table with LocalFirstColumns {
     QuotationItems,
     QuotationDraftElectricalSelections,
     QuotationDraftCommercialQuotes,
+    QuotationDraftStructureDesigns,
     CompanySettings,
     AppSettings,
     AuditLogs,
@@ -499,7 +515,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -602,6 +618,9 @@ class AppDatabase extends _$AppDatabase {
               quotationDraftCommercialQuotes,
               quotationDraftCommercialQuotes.paymentTermsNote,
             );
+          }
+          if (from < 11) {
+            await m.createTable(quotationDraftStructureDesigns);
           }
         },
       );

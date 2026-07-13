@@ -1,16 +1,20 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../cotizaciones/application/quotation_draft_controller.dart';
+import '../../data/structure_design_repository.dart';
+import '../../domain/entities/structure_design_selection.dart';
 import '../../domain/structure_design_context.dart';
 import '../../domain/structure_design_rules.dart';
 
-class EstructuraScreen extends StatefulWidget {
+class EstructuraScreen extends ConsumerStatefulWidget {
   const EstructuraScreen({
     super.key,
     this.designContext,
@@ -19,10 +23,10 @@ class EstructuraScreen extends StatefulWidget {
   final StructureDesignContext? designContext;
 
   @override
-  State<EstructuraScreen> createState() => _EstructuraScreenState();
+  ConsumerState<EstructuraScreen> createState() => _EstructuraScreenState();
 }
 
-class _EstructuraScreenState extends State<EstructuraScreen> {
+class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
   late final TextEditingController _structuresCountController;
   late final TextEditingController _panelsHorizontalController;
   late final TextEditingController _panelRowsController;
@@ -31,6 +35,8 @@ class _EstructuraScreenState extends State<EstructuraScreen> {
 
   StructureMountType _mountType = StructureMountType.inclinedFlatRoof;
   StructureFixingType _fixingType = StructureFixingType.chemicalAnchor;
+  bool _initializedFromPersisted = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -73,6 +79,31 @@ class _EstructuraScreenState extends State<EstructuraScreen> {
           onPressed: () => context.go(AppRoutes.dimensionamientoElectrico),
         ),
       );
+    }
+
+    final activeDraftId = ref.watch(activeQuotationDraftIdProvider);
+
+    if (activeDraftId != null) {
+      final persistedSelection = ref
+          .watch(structureDesignSelectionProvider(activeDraftId))
+          .valueOrNull;
+
+      if (!_initializedFromPersisted && persistedSelection != null) {
+        _initializedFromPersisted = true;
+        _mountType = _mountTypeFromKey(persistedSelection.mountType) ??
+            _mountType;
+        _fixingType = _fixingTypeFromKey(persistedSelection.fixingType) ??
+            _fixingType;
+        _structuresCountController.text =
+            '${persistedSelection.structuresCount}';
+        _panelsHorizontalController.text =
+            '${persistedSelection.panelsHorizontal}';
+        _panelRowsController.text = '${persistedSelection.panelRows}';
+        _inclinationController.text =
+            persistedSelection.inclinationDegrees.toStringAsFixed(0);
+        _frontLegController.text =
+            persistedSelection.frontLegCm.toStringAsFixed(0);
+      }
     }
 
     final result = _calculate(designContext);
@@ -153,6 +184,27 @@ class _EstructuraScreenState extends State<EstructuraScreen> {
                   fixingType: _fixingType,
                 ),
               ),
+              if (activeDraftId != null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _isSaving
+                        ? null
+                        : () => _saveDesign(activeDraftId),
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(
+                      _isSaving ? 'Guardando...' : 'Guardar diseño de estructura',
+                    ),
+                  ),
+                ),
+              ],
             ] else if (result != null) ...[
               const SizedBox(height: 16),
               const SectionCard(
@@ -226,6 +278,70 @@ class _EstructuraScreenState extends State<EstructuraScreen> {
 
   double? _parseDouble(String value) {
     return double.tryParse(value.trim().replaceAll(',', '.'));
+  }
+
+  Future<void> _saveDesign(String activeDraftId) async {
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await ref.read(structureDesignRepositoryProvider).upsertDraftSelection(
+            quotationDraftId: activeDraftId,
+            selection: SaveStructureDesignSelectionInput(
+              mountType: _mountType.name,
+              fixingType: _fixingType.name,
+              structuresCount:
+                  _parseInt(_structuresCountController.text) ?? 1,
+              panelsHorizontal:
+                  _parseInt(_panelsHorizontalController.text) ?? 1,
+              panelRows: _parseInt(_panelRowsController.text) ?? 1,
+              inclinationDegrees:
+                  _parseDouble(_inclinationController.text) ?? 0,
+              frontLegCm: _parseDouble(_frontLegController.text) ?? 0,
+            ),
+          );
+
+      ref.invalidate(structureDesignSelectionProvider(activeDraftId));
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Diseño de estructura guardado.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar el diseño: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  StructureMountType? _mountTypeFromKey(String? key) {
+    if (key == null) return null;
+
+    for (final value in StructureMountType.values) {
+      if (value.name == key) return value;
+    }
+
+    return null;
+  }
+
+  StructureFixingType? _fixingTypeFromKey(String? key) {
+    if (key == null) return null;
+
+    for (final value in StructureFixingType.values) {
+      if (value.name == key) return value;
+    }
+
+    return null;
   }
 }
 

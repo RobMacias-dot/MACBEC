@@ -204,6 +204,16 @@ class _CotizacionClientePreviewScreenState
                   label: const Text('Vista previa / imprimir'),
                 ),
               ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      context.push(AppRoutes.propuestaTecnica),
+                  icon: const Icon(Icons.description_outlined),
+                  label: const Text('Generar propuesta técnica'),
+                ),
+              ),
             ],
           );
         },
