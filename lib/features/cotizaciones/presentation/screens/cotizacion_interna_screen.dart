@@ -10,6 +10,7 @@ import '../../../../shared/widgets/section_card.dart';
 import '../../application/quotation_draft_controller.dart';
 import '../../application/quotation_summary_provider.dart';
 import '../../data/quotation_commercial_repository.dart';
+import '../../domain/entities/quotation_commercial_quote.dart';
 import '../../domain/quotation_commercial_calculator.dart';
 
 class CotizacionInternaScreen extends ConsumerStatefulWidget {
@@ -23,20 +24,29 @@ class CotizacionInternaScreen extends ConsumerStatefulWidget {
 class _CotizacionInternaScreenState
     extends ConsumerState<CotizacionInternaScreen> {
   final _utilityRateController = TextEditingController();
+  final _panelUtilityRateController = TextEditingController();
+  final _inverterUtilityRateController = TextEditingController();
   final _ivaRateController = TextEditingController();
   final _discountController = TextEditingController();
   final _advanceController = TextEditingController();
+  final _paymentTermsController = TextEditingController();
   final _currencyFormatter = CurrencyFormatter();
 
   bool _initialized = false;
   bool _isSaving = false;
+  bool _isAccepting = false;
+  bool _showAdvancedUtility = false;
+  bool _showHistory = false;
 
   @override
   void dispose() {
     _utilityRateController.dispose();
+    _panelUtilityRateController.dispose();
+    _inverterUtilityRateController.dispose();
     _ivaRateController.dispose();
     _discountController.dispose();
     _advanceController.dispose();
+    _paymentTermsController.dispose();
     super.dispose();
   }
 
@@ -77,8 +87,30 @@ class _CotizacionInternaScreenState
         data: (summary) {
           _ensureInitialized(summary);
 
+          final quote = summary.commercialQuote;
+
           return ListView(
             children: [
+              if (quote != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text('Versión ${quote.versionNumber}'),
+                      ),
+                      const SizedBox(width: 8),
+                      if (quote.isAccepted)
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primaryContainer,
+                          label: const Text('Aceptada'),
+                        ),
+                    ],
+                  ),
+                ),
               SectionCard(
                 title: 'Resumen técnico',
                 child: _TechnicalSummary(summary: summary),
@@ -88,9 +120,16 @@ class _CotizacionInternaScreenState
                 title: 'Parámetros comerciales',
                 child: _CommercialInputs(
                   utilityRateController: _utilityRateController,
+                  panelUtilityRateController: _panelUtilityRateController,
+                  inverterUtilityRateController: _inverterUtilityRateController,
                   ivaRateController: _ivaRateController,
                   discountController: _discountController,
                   advanceController: _advanceController,
+                  paymentTermsController: _paymentTermsController,
+                  showAdvancedUtility: _showAdvancedUtility,
+                  onToggleAdvanced: () => setState(() {
+                    _showAdvancedUtility = !_showAdvancedUtility;
+                  }),
                   onChanged: () => setState(() {}),
                 ),
               ),
@@ -117,20 +156,55 @@ class _CotizacionInternaScreenState
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_outlined),
-                  label: Text(_isSaving ? 'Guardando...' : 'Guardar cotización'),
+                  label: Text(
+                    _isSaving ? 'Guardando...' : 'Guardar nueva versión',
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: summary.commercialQuote == null
+                  onPressed: (quote == null || quote.isAccepted || _isAccepting)
+                      ? null
+                      : () => _acceptQuote(activeDraftId),
+                  icon: _isAccepting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                  label: Text(
+                    _isAccepting
+                        ? 'Guardando...'
+                        : 'Marcar como aceptada por el cliente',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: quote == null
                       ? null
                       : () => context.push(AppRoutes.cotizacionClientePreview),
                   icon: const Icon(Icons.picture_as_pdf_outlined),
                   label: const Text('Ir a vista de cliente / PDF'),
                 ),
               ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: () => setState(() {
+                  _showHistory = !_showHistory;
+                }),
+                icon: Icon(
+                  _showHistory ? Icons.expand_less : Icons.expand_more,
+                ),
+                label: const Text('Historial de versiones'),
+              ),
+              if (_showHistory)
+                _QuoteHistory(draftId: activeDraftId),
             ],
           );
         },
@@ -147,28 +221,23 @@ class _CotizacionInternaScreenState
     _utilityRateController.text = (quote?.generalUtilityRatePercent ??
             summary.commercialSettings.generalUtilityRatePercent)
         .toStringAsFixed(2);
+    _panelUtilityRateController.text =
+        quote?.panelUtilityRatePercent?.toStringAsFixed(2) ?? '';
+    _inverterUtilityRateController.text =
+        quote?.inverterUtilityRatePercent?.toStringAsFixed(2) ?? '';
     _ivaRateController.text =
         (quote?.ivaRatePercent ?? summary.commercialSettings.ivaRatePercent)
             .toStringAsFixed(2);
     _discountController.text = (quote?.discountAmount ?? 0).toStringAsFixed(2);
     _advanceController.text =
         (quote?.advancePaymentAmount ?? 0).toStringAsFixed(2);
+    _paymentTermsController.text = quote?.paymentTermsNote ?? '';
+    _showAdvancedUtility = quote?.panelUtilityRatePercent != null ||
+        quote?.inverterUtilityRatePercent != null;
   }
 
   Widget _buildBreakdown(QuotationSummary summary) {
-    final input = QuotationCommercialCalculator.calculate(
-      panel: summary.panel,
-      panelQuantity: summary.pvCalculation.requiredPanels,
-      inverter: summary.inverter,
-      inverterQuantity: summary.requiredInverters,
-      generalUtilityRatePercent: _parseDouble(_utilityRateController.text) ??
-          summary.commercialSettings.generalUtilityRatePercent,
-      ivaRatePercent: _parseDouble(_ivaRateController.text) ??
-          summary.commercialSettings.ivaRatePercent,
-      discountAmount: _parseDouble(_discountController.text) ?? 0,
-      advancePaymentAmount: _parseDouble(_advanceController.text) ?? 0,
-      currency: summary.commercialSettings.currency,
-    );
+    final input = _calculate(summary);
 
     return Column(
       children: [
@@ -213,6 +282,29 @@ class _CotizacionInternaScreenState
             ),
           ),
       ],
+    );
+  }
+
+  SaveQuotationCommercialQuoteInput _calculate(QuotationSummary summary) {
+    return QuotationCommercialCalculator.calculate(
+      panel: summary.panel,
+      panelQuantity: summary.pvCalculation.requiredPanels,
+      inverter: summary.inverter,
+      inverterQuantity: summary.requiredInverters,
+      generalUtilityRatePercent: _parseDouble(_utilityRateController.text) ??
+          summary.commercialSettings.generalUtilityRatePercent,
+      panelUtilityRatePercent: _showAdvancedUtility
+          ? _parseDouble(_panelUtilityRateController.text)
+          : null,
+      inverterUtilityRatePercent: _showAdvancedUtility
+          ? _parseDouble(_inverterUtilityRateController.text)
+          : null,
+      ivaRatePercent: _parseDouble(_ivaRateController.text) ??
+          summary.commercialSettings.ivaRatePercent,
+      discountAmount: _parseDouble(_discountController.text) ?? 0,
+      advancePaymentAmount: _parseDouble(_advanceController.text) ?? 0,
+      currency: summary.commercialSettings.currency,
+      paymentTermsNote: _paymentTermsController.text,
     );
   }
 
@@ -267,32 +359,22 @@ class _CotizacionInternaScreenState
     });
 
     try {
-      final input = QuotationCommercialCalculator.calculate(
-        panel: summary.panel,
-        panelQuantity: summary.pvCalculation.requiredPanels,
-        inverter: summary.inverter,
-        inverterQuantity: summary.requiredInverters,
-        generalUtilityRatePercent: _parseDouble(_utilityRateController.text) ??
-            summary.commercialSettings.generalUtilityRatePercent,
-        ivaRatePercent: _parseDouble(_ivaRateController.text) ??
-            summary.commercialSettings.ivaRatePercent,
-        discountAmount: _parseDouble(_discountController.text) ?? 0,
-        advancePaymentAmount: _parseDouble(_advanceController.text) ?? 0,
-        currency: summary.commercialSettings.currency,
-      );
+      final input = _calculate(summary);
 
-      await ref
-          .read(quotationCommercialRepositoryProvider)
-          .upsertDraftQuote(quotationDraftId: activeDraftId, quote: input);
+      await ref.read(quotationCommercialRepositoryProvider).createQuoteVersion(
+            quotationDraftId: activeDraftId,
+            quote: input,
+          );
 
       ref.invalidate(quotationCommercialQuoteProvider(activeDraftId));
+      ref.invalidate(quotationCommercialHistoryProvider(activeDraftId));
       ref.invalidate(quotationSummaryProvider(activeDraftId));
       ref.invalidate(quotationDraftsControllerProvider);
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cotización guardada.')),
+        const SnackBar(content: Text('Nueva versión de la cotización guardada.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -304,6 +386,41 @@ class _CotizacionInternaScreenState
       if (mounted) {
         setState(() {
           _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _acceptQuote(String activeDraftId) async {
+    setState(() {
+      _isAccepting = true;
+    });
+
+    try {
+      await ref
+          .read(quotationCommercialRepositoryProvider)
+          .markCurrentAsAccepted(activeDraftId);
+
+      ref.invalidate(quotationCommercialQuoteProvider(activeDraftId));
+      ref.invalidate(quotationCommercialHistoryProvider(activeDraftId));
+      ref.invalidate(quotationSummaryProvider(activeDraftId));
+      ref.invalidate(quotationDraftsControllerProvider);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cotización marcada como aceptada.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo marcar como aceptada: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAccepting = false;
         });
       }
     }
@@ -349,16 +466,26 @@ class _TechnicalSummary extends StatelessWidget {
 class _CommercialInputs extends StatelessWidget {
   const _CommercialInputs({
     required this.utilityRateController,
+    required this.panelUtilityRateController,
+    required this.inverterUtilityRateController,
     required this.ivaRateController,
     required this.discountController,
     required this.advanceController,
+    required this.paymentTermsController,
+    required this.showAdvancedUtility,
+    required this.onToggleAdvanced,
     required this.onChanged,
   });
 
   final TextEditingController utilityRateController;
+  final TextEditingController panelUtilityRateController;
+  final TextEditingController inverterUtilityRateController;
   final TextEditingController ivaRateController;
   final TextEditingController discountController;
   final TextEditingController advanceController;
+  final TextEditingController paymentTermsController;
+  final bool showAdvancedUtility;
+  final VoidCallback onToggleAdvanced;
   final VoidCallback onChanged;
 
   @override
@@ -394,7 +521,51 @@ class _CommercialInputs extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: onToggleAdvanced,
+            icon: Icon(
+              showAdvancedUtility ? Icons.expand_less : Icons.expand_more,
+            ),
+            label: const Text('Utilidad por partida (avanzado)'),
+          ),
+        ),
+        if (showAdvancedUtility) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: panelUtilityRateController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Utilidad paneles',
+                    suffixText: '%',
+                    helperText: 'Vacío = usa la utilidad general',
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: inverterUtilityRateController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Utilidad inversor',
+                    suffixText: '%',
+                    helperText: 'Vacío = usa la utilidad general',
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             Expanded(
@@ -424,7 +595,66 @@ class _CommercialInputs extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: paymentTermsController,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Esquema de pagos',
+            helperText: 'Ej: 50% anticipo, 50% contra entrega e instalación',
+          ),
+          onChanged: (_) => onChanged(),
+        ),
       ],
+    );
+  }
+}
+
+class _QuoteHistory extends ConsumerWidget {
+  const _QuoteHistory({required this.draftId});
+
+  final String draftId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyAsync = ref.watch(quotationCommercialHistoryProvider(draftId));
+    final currencyFormatter = CurrencyFormatter();
+
+    return historyAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, stackTrace) => Text('Error: $error'),
+      data: (versions) {
+        if (versions.isEmpty) {
+          return const Text('Todavía no hay versiones guardadas.');
+        }
+
+        return Column(
+          children: versions
+              .map(
+                (version) => Card(
+                  elevation: 0,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.4),
+                  child: ListTile(
+                    dense: true,
+                    title: Text('Versión ${version.versionNumber}'),
+                    subtitle: Text(
+                      'Total: ${currencyFormatter.format(version.total)}'
+                      '${version.isAccepted ? ' · Aceptada' : ''}',
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 }

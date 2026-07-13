@@ -254,6 +254,14 @@ class PdfService {
             'Precios en ${commercial.currency}.',
             style: const pw.TextStyle(fontSize: 8.5, color: _mutedColor),
           ),
+          if (commercial.paymentTermsNote != null &&
+              commercial.paymentTermsNote!.trim().isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'Esquema de pagos: ${commercial.paymentTermsNote}',
+              style: const pw.TextStyle(fontSize: 9),
+            ),
+          ],
         ],
       ),
     );

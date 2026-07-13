@@ -110,4 +110,26 @@ void main() {
     expect(result.panelUnitCost, equals(0));
     expect(result.panelUnitPrice, equals(0));
   });
+
+  test('la utilidad por partida sustituye a la utilidad general solo donde se indica',
+      () {
+    final result = QuotationCommercialCalculator.calculate(
+      panel: panel,
+      panelQuantity: 10,
+      inverter: inverter,
+      inverterQuantity: 1,
+      generalUtilityRatePercent: 30,
+      panelUtilityRatePercent: 10,
+      ivaRatePercent: 16,
+      discountAmount: 0,
+      advancePaymentAmount: 0,
+      currency: 'MXN',
+    );
+
+    // Panel usa 10% (override), inversor usa 30% (general, sin override).
+    expect(result.panelUnitPrice, closeTo(2200, 0.001));
+    expect(result.inverterUnitPrice, closeTo(10400, 0.001));
+    expect(result.panelUtilityRatePercent, equals(10));
+    expect(result.inverterUtilityRatePercent, isNull);
+  });
 }

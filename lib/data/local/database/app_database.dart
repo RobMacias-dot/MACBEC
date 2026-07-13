@@ -416,12 +416,19 @@ class QuotationDraftElectricalSelections extends Table with LocalFirstColumns {
 class QuotationDraftCommercialQuotes extends Table with LocalFirstColumns {
   TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
 
+  IntColumn get versionNumber => integer().withDefault(const Constant(1))();
+  BoolColumn get isCurrent => boolean().withDefault(const Constant(true))();
+  BoolColumn get isAccepted => boolean().withDefault(const Constant(false))();
+
   RealColumn get generalUtilityRatePercent => real()();
+  RealColumn get panelUtilityRatePercent => real().nullable()();
+  RealColumn get inverterUtilityRatePercent => real().nullable()();
   RealColumn get ivaRatePercent => real()();
   RealColumn get discountAmount => real().withDefault(const Constant(0))();
   RealColumn get advancePaymentAmount =>
       real().withDefault(const Constant(0))();
   TextColumn get currency => text().withDefault(const Constant('MXN'))();
+  TextColumn get paymentTermsNote => text().nullable()();
 
   RealColumn get panelUnitCost => real()();
   RealColumn get panelUnitPrice => real()();
@@ -492,7 +499,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -569,6 +576,32 @@ class AppDatabase extends _$AppDatabase {
           if (from < 9) {
             await m.addColumn(projects, projects.installationType);
             await m.addColumn(quotationDrafts, quotationDrafts.projectId);
+          }
+          if (from < 10) {
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.versionNumber,
+            );
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.isCurrent,
+            );
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.isAccepted,
+            );
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.panelUtilityRatePercent,
+            );
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.inverterUtilityRatePercent,
+            );
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.paymentTermsNote,
+            );
           }
         },
       );

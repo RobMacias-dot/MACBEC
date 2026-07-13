@@ -2,6 +2,9 @@ class QuotationCommercialQuote {
   const QuotationCommercialQuote({
     required this.id,
     required this.quotationDraftId,
+    required this.versionNumber,
+    required this.isCurrent,
+    required this.isAccepted,
     required this.generalUtilityRatePercent,
     required this.ivaRatePercent,
     required this.discountAmount,
@@ -18,18 +21,27 @@ class QuotationCommercialQuote {
     required this.total,
     required this.createdAt,
     required this.updatedAt,
+    this.panelUtilityRatePercent,
+    this.inverterUtilityRatePercent,
+    this.paymentTermsNote,
     this.quotationPdfDocumentId,
     this.pdfGeneratedAt,
   });
 
   final String id;
   final String quotationDraftId;
+  final int versionNumber;
+  final bool isCurrent;
+  final bool isAccepted;
 
   final double generalUtilityRatePercent;
+  final double? panelUtilityRatePercent;
+  final double? inverterUtilityRatePercent;
   final double ivaRatePercent;
   final double discountAmount;
   final double advancePaymentAmount;
   final String currency;
+  final String? paymentTermsNote;
 
   final double panelUnitCost;
   final double panelUnitPrice;
@@ -70,13 +82,19 @@ class SaveQuotationCommercialQuoteInput {
     required this.subtotal,
     required this.ivaAmount,
     required this.total,
+    this.panelUtilityRatePercent,
+    this.inverterUtilityRatePercent,
+    this.paymentTermsNote,
   });
 
   final double generalUtilityRatePercent;
+  final double? panelUtilityRatePercent;
+  final double? inverterUtilityRatePercent;
   final double ivaRatePercent;
   final double discountAmount;
   final double advancePaymentAmount;
   final String currency;
+  final String? paymentTermsNote;
 
   final double panelUnitCost;
   final double panelUnitPrice;

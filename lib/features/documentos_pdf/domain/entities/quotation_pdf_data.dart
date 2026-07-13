@@ -60,6 +60,7 @@ class QuotationPdfCommercialSummary {
     required this.advancePaymentAmount,
     required this.total,
     required this.validityDays,
+    this.paymentTermsNote,
   });
 
   final String currency;
@@ -70,6 +71,7 @@ class QuotationPdfCommercialSummary {
   final double advancePaymentAmount;
   final double total;
   final int validityDays;
+  final String? paymentTermsNote;
 
   double get balanceDue => total - advancePaymentAmount;
 }

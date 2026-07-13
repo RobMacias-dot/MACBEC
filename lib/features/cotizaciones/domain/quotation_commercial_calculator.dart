@@ -7,6 +7,9 @@ import 'quotation_rules.dart';
 /// inversor seleccionados. Solo paneles e inversor tienen costo de compra
 /// persistido hoy; estructura, cableado y mano de obra se incorporarán en
 /// una fase posterior cuando esos catálogos tengan datos comerciales.
+///
+/// La utilidad general aplica a ambas partidas salvo que se indique una
+/// utilidad específica por partida (modo avanzado).
 class QuotationCommercialCalculator {
   const QuotationCommercialCalculator._();
 
@@ -20,20 +23,26 @@ class QuotationCommercialCalculator {
     required double discountAmount,
     required double advancePaymentAmount,
     required String currency,
+    double? panelUtilityRatePercent,
+    double? inverterUtilityRatePercent,
+    String? paymentTermsNote,
   }) {
-    final utilityRate = generalUtilityRatePercent / 100;
+    final panelUtilityRate =
+        (panelUtilityRatePercent ?? generalUtilityRatePercent) / 100;
+    final inverterUtilityRate =
+        (inverterUtilityRatePercent ?? generalUtilityRatePercent) / 100;
     final ivaRate = ivaRatePercent / 100;
 
     final panelUnitCost = panel.purchasePrice ?? 0;
     final panelUnitPrice = QuotationRules.applyUtility(
       panelUnitCost,
-      utilityRate,
+      panelUtilityRate,
     );
 
     final inverterUnitCost = inverter.purchasePrice ?? 0;
     final inverterUnitPrice = QuotationRules.applyUtility(
       inverterUnitCost,
-      utilityRate,
+      inverterUtilityRate,
     );
 
     final subtotal = (panelUnitPrice * panelQuantity) +
@@ -54,10 +63,13 @@ class QuotationCommercialCalculator {
 
     return SaveQuotationCommercialQuoteInput(
       generalUtilityRatePercent: generalUtilityRatePercent,
+      panelUtilityRatePercent: panelUtilityRatePercent,
+      inverterUtilityRatePercent: inverterUtilityRatePercent,
       ivaRatePercent: ivaRatePercent,
       discountAmount: safeDiscount,
       advancePaymentAmount: advancePaymentAmount,
       currency: currency,
+      paymentTermsNote: paymentTermsNote,
       panelUnitCost: panelUnitCost,
       panelUnitPrice: panelUnitPrice,
       panelQuantity: panelQuantity,

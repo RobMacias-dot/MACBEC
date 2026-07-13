@@ -146,6 +146,14 @@ class _CotizacionClientePreviewScreenState
                         label: 'Saldo restante',
                         value: _currencyFormatter.format(quote.balanceDue),
                       ),
+                    if (quote.paymentTermsNote != null &&
+                        quote.paymentTermsNote!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Esquema de pagos: ${quote.paymentTermsNote}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -248,6 +256,7 @@ class _CotizacionClientePreviewScreenState
         advancePaymentAmount: quote.advancePaymentAmount,
         total: quote.total,
         validityDays: summary.commercialSettings.defaultQuotationValidityDays,
+        paymentTermsNote: quote.paymentTermsNote,
       ),
       warrantyNote: summary.commercialSettings.warrantyNote,
       legalNote: summary.commercialSettings.quotationLegalNote,
