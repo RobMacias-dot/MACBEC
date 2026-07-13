@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xml/xml.dart';
 
-import '../../../../shared/components/section_card.dart';
+import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../application/inverter_catalog_controller.dart';
 import '../../application/panel_catalog_controller.dart';

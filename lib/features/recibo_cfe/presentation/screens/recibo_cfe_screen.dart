@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../shared/components/section_card.dart';
+import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';

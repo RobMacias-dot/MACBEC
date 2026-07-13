@@ -1,7 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../shared/components/section_card.dart';
+import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 
 class AnalisisProductoScreen extends StatefulWidget {
