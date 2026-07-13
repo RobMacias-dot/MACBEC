@@ -25,7 +25,8 @@ import '../../features/expediente/presentation/screens/expediente_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/analisis_producto_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/proveedores_screen.dart';
 import '../../features/proyectos/presentation/screens/proyecto_detalle_screen.dart';
-import '../../features/proyectos/presentation/screens/proyecto_form_screen.dart';
+import '../../features/proyectos/presentation/screens/proyecto_form_screen.dart'
+    show ProyectoFormArgs, ProyectoFormScreen;
 import '../../features/recibo_cfe/presentation/screens/recibo_cfe_revision_screen.dart';
 import '../../features/recibo_cfe/presentation/screens/recibo_cfe_screen.dart';
 import '../../features/seleccion_tecnica/presentation/screens/seleccion_tecnica_screen.dart';
@@ -61,19 +62,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.clienteForm,
-        builder: (context, state) => const ClienteFormScreen(),
+        builder: (context, state) => ClienteFormScreen(
+          clientId: state.extra is String ? state.extra! as String : null,
+        ),
       ),
       GoRoute(
         path: AppRoutes.clienteDetalle,
-        builder: (context, state) => const ClienteDetalleScreen(),
+        builder: (context, state) => ClienteDetalleScreen(
+          clientId: state.extra! as String,
+        ),
       ),
       GoRoute(
         path: AppRoutes.proyectoForm,
-        builder: (context, state) => const ProyectoFormScreen(),
+        builder: (context, state) => ProyectoFormScreen(
+          formArgs: state.extra is ProyectoFormArgs
+              ? state.extra! as ProyectoFormArgs
+              : null,
+        ),
       ),
       GoRoute(
         path: AppRoutes.proyectoDetalle,
-        builder: (context, state) => const ProyectoDetalleScreen(),
+        builder: (context, state) => ProyectoDetalleScreen(
+          projectId: state.extra! as String,
+        ),
       ),
       GoRoute(
         path: AppRoutes.reciboCfe,

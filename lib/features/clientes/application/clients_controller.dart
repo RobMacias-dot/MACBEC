@@ -12,3 +12,8 @@ final clientsControllerProvider =
     FutureProvider<List<client_entity.Client>>((ref) async {
   return ref.watch(clientRepositoryProvider).getAll();
 });
+
+final clientByIdProvider =
+    FutureProvider.family<client_entity.Client?, String>((ref, clientId) async {
+  return ref.watch(clientRepositoryProvider).getById(clientId);
+});

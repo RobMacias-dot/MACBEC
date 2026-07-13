@@ -104,7 +104,7 @@ class _ClientCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.push(AppRoutes.clienteDetalle),
+        onTap: () => context.push(AppRoutes.clienteDetalle, extra: client.id),
       ),
     );
   }

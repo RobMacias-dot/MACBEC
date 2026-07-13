@@ -81,6 +81,7 @@ class Projects extends Table with LocalFirstColumns {
   TextColumn get clientId => text().references(Clients, #id)();
   TextColumn get name => text()();
   TextColumn get status => text().withDefault(const Constant('prospecto'))();
+  TextColumn get installationType => text().nullable()();
   TextColumn get serviceAddress => text().nullable()();
   TextColumn get state => text().nullable()();
   TextColumn get municipality => text().nullable()();
@@ -116,6 +117,7 @@ class Documents extends Table with LocalFirstColumns {
 
 class QuotationDrafts extends Table with LocalFirstColumns {
   TextColumn get draftCode => text().nullable()();
+  TextColumn get projectId => text().nullable().references(Projects, #id)();
 
   TextColumn get prospectName => text()();
   TextColumn get phone => text().nullable()();
@@ -490,7 +492,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -563,6 +565,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 8) {
             await m.createTable(quotationDraftElectricalSelections);
             await m.createTable(quotationDraftCommercialQuotes);
+          }
+          if (from < 9) {
+            await m.addColumn(projects, projects.installationType);
+            await m.addColumn(quotationDrafts, quotationDrafts.projectId);
           }
         },
       );

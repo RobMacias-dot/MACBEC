@@ -7,6 +7,7 @@ import '../domain/entities/quotation_draft.dart' as quotation_entity;
 class CreateQuotationDraftInput {
   const CreateQuotationDraftInput({
     required this.prospectName,
+    this.projectId,
     this.phone,
     this.whatsapp,
     this.email,
@@ -15,6 +16,7 @@ class CreateQuotationDraftInput {
   });
 
   final String prospectName;
+  final String? projectId;
   final String? phone;
   final String? whatsapp;
   final String? email;
@@ -74,6 +76,7 @@ class QuotationDraftRepository {
     await _database.into(_database.quotationDrafts).insert(
           QuotationDraftsCompanion.insert(
             id: Value(draftId),
+            projectId: Value(_cleanNullableText(input.projectId)),
             prospectName: input.prospectName.trim(),
             phone: Value(_cleanNullableText(input.phone)),
             whatsapp: Value(_cleanNullableText(input.whatsapp)),
@@ -201,10 +204,28 @@ class QuotationDraftRepository {
     return rows.map(_mapRowToEntity).toList();
   }
 
+  Future<List<quotation_entity.QuotationDraft>> getByProjectId(
+    String projectId,
+  ) async {
+    final query = _database.select(_database.quotationDrafts)
+      ..where(
+        (draft) =>
+            draft.projectId.equals(projectId) & draft.isDeleted.equals(false),
+      )
+      ..orderBy([
+        (draft) => OrderingTerm.desc(draft.createdAt),
+      ]);
+
+    final rows = await query.get();
+
+    return rows.map(_mapRowToEntity).toList();
+  }
+
   quotation_entity.QuotationDraft _mapRowToEntity(QuotationDraft row) {
     return quotation_entity.QuotationDraft(
       id: row.id,
       draftCode: row.draftCode,
+      projectId: row.projectId,
       prospectName: row.prospectName,
       phone: row.phone,
       whatsapp: row.whatsapp,

@@ -19,6 +19,7 @@ class QuotationDraft {
     required this.createdAt,
     required this.updatedAt,
     this.draftCode,
+    this.projectId,
     this.phone,
     this.whatsapp,
     this.email,
@@ -38,6 +39,7 @@ class QuotationDraft {
 
   final String id;
   final String? draftCode;
+  final String? projectId;
 
   final String prospectName;
   final String? phone;

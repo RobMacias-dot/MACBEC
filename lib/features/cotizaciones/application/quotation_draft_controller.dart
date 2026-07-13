@@ -15,6 +15,11 @@ final quotationDraftsControllerProvider =
   return ref.watch(quotationDraftRepositoryProvider).getAllActive();
 });
 
+final quotationDraftsByProjectProvider =
+    FutureProvider.family<List<QuotationDraft>, String>((ref, projectId) async {
+  return ref.watch(quotationDraftRepositoryProvider).getByProjectId(projectId);
+});
+
 final activeQuotationDraftIdProvider = StateProvider<String?>((ref) {
   return null;
 });

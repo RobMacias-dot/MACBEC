@@ -15,3 +15,19 @@ class Client {
   final String? address;
   final String? notes;
 }
+
+class SaveClientInput {
+  const SaveClientInput({
+    required this.fullName,
+    this.phone,
+    this.email,
+    this.address,
+    this.notes,
+  });
+
+  final String fullName;
+  final String? phone;
+  final String? email;
+  final String? address;
+  final String? notes;
+}
