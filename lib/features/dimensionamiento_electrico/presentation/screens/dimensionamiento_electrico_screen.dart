@@ -13,7 +13,9 @@ import '../../../catalogo_tecnico/application/panel_catalog_controller.dart';
 import '../../../catalogo_tecnico/domain/entities/solar_panel.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../estructura/domain/structure_design_context.dart';
+import '../../data/electrical_selection_repository.dart';
 import '../../domain/electrical_dimensioning_rules.dart';
+import '../../domain/entities/electrical_selection.dart';
 
 class DimensionamientoElectricoScreen extends ConsumerStatefulWidget {
   const DimensionamientoElectricoScreen({super.key});
@@ -32,6 +34,8 @@ class _DimensionamientoElectricoScreenState
   String? _expandedInverterId;
   AcConductorMaterial _acMaterial = AcConductorMaterial.copper;
   AcPhaseType _acPhaseType = AcPhaseType.bifasic;
+  bool _initializedFromPersisted = false;
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -157,6 +161,33 @@ class _DimensionamientoElectricoScreenState
                     ),
                   );
 
+                  final persistedSelection = ref
+                      .watch(electricalSelectionProvider(activeDraftId))
+                      .valueOrNull;
+
+                  if (!_initializedFromPersisted && persistedSelection != null) {
+                    _initializedFromPersisted = true;
+                    _selectedInverterId ??= persistedSelection.inverterId;
+                    _acMaterial = _acMaterialFromKey(
+                          persistedSelection.acMaterial,
+                        ) ??
+                        _acMaterial;
+                    _acPhaseType = _acPhaseTypeFromKey(
+                          persistedSelection.acPhaseType,
+                        ) ??
+                        _acPhaseType;
+
+                    if (persistedSelection.acDistanceMeters != null) {
+                      _acDistanceController.text =
+                          persistedSelection.acDistanceMeters!
+                              .toStringAsFixed(1);
+                    }
+                    if (persistedSelection.acVoltage != null) {
+                      _acVoltageController.text =
+                          persistedSelection.acVoltage!.toStringAsFixed(0);
+                    }
+                  }
+
                   final selectedOption = _findOptionByInverterId(
                     result.options,
                     _selectedInverterId,
@@ -217,6 +248,11 @@ class _DimensionamientoElectricoScreenState
                                                   featuredOption.inverter.id;
                                               _expandedInverterId = null;
                                             });
+                                            _persistSelection(
+                                              activeDraftId: activeDraftId,
+                                              inverterId:
+                                                  featuredOption.inverter.id,
+                                            );
                                           }
                                         : null,
                                   ),
@@ -225,6 +261,7 @@ class _DimensionamientoElectricoScreenState
                                     width: double.infinity,
                                     child: OutlinedButton.icon(
                                       onPressed: () => _openInverterSelector(
+                                        activeDraftId: activeDraftId,
                                         result: result,
                                       ),
                                       icon: Icon(
@@ -295,23 +332,28 @@ class _DimensionamientoElectricoScreenState
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: () => context.push(
-                              AppRoutes.estructura,
-                              extra: StructureDesignContext(
-                                panelName: selectedPanel.displayName,
-                                panelPowerWatts: selectedPanel.powerWatts,
-                                requiredPanels: result.requiredPanels,
-                                totalPvPowerWatts: result.totalPanelPowerWatts,
-                                panelLengthMm: selectedPanel.lengthMm,
-                                panelWidthMm: selectedPanel.widthMm,
-                                inverterName:
-                                    selectedOption.inverter.displayName,
-                                inverterQuantity:
-                                    selectedOption.requiredInverters,
-                              ),
+                            onPressed: _isSaving
+                                ? null
+                                : () => _saveSelectionAndContinue(
+                                      activeDraftId: activeDraftId,
+                                      selectedPanel: selectedPanel,
+                                      selectedOption: selectedOption,
+                                      result: result,
+                                    ),
+                            icon: _isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.foundation_outlined),
+                            label: Text(
+                              _isSaving
+                                  ? 'Guardando...'
+                                  : 'Continuar a estructura',
                             ),
-                            icon: const Icon(Icons.foundation_outlined),
-                            label: const Text('Continuar a estructura'),
                           ),
                         ),
                       ],
@@ -324,6 +366,104 @@ class _DimensionamientoElectricoScreenState
         },
       ),
     );
+  }
+
+  void _persistSelection({
+    required String activeDraftId,
+    required String inverterId,
+  }) {
+    ref
+        .read(electricalSelectionRepositoryProvider)
+        .upsertDraftSelection(
+          quotationDraftId: activeDraftId,
+          selection: SaveElectricalSelectionInput(
+            inverterId: inverterId,
+            acDistanceMeters: _parseFlexibleDouble(_acDistanceController.text),
+            acVoltage: _parseFlexibleDouble(_acVoltageController.text),
+            acMaterial: _acMaterial.name,
+            acPhaseType: _acPhaseType.name,
+          ),
+        )
+        .then((_) {
+      ref.invalidate(electricalSelectionProvider(activeDraftId));
+    });
+  }
+
+  Future<void> _saveSelectionAndContinue({
+    required String activeDraftId,
+    required SolarPanel selectedPanel,
+    required ElectricalDimensioningOption selectedOption,
+    required ElectricalDimensioningResult result,
+  }) async {
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await ref.read(electricalSelectionRepositoryProvider).upsertDraftSelection(
+            quotationDraftId: activeDraftId,
+            selection: SaveElectricalSelectionInput(
+              inverterId: selectedOption.inverter.id,
+              acDistanceMeters:
+                  _parseFlexibleDouble(_acDistanceController.text),
+              acVoltage: _parseFlexibleDouble(_acVoltageController.text),
+              acMaterial: _acMaterial.name,
+              acPhaseType: _acPhaseType.name,
+            ),
+          );
+
+      ref.invalidate(electricalSelectionProvider(activeDraftId));
+
+      if (!mounted) return;
+
+      context.push(
+        AppRoutes.estructura,
+        extra: StructureDesignContext(
+          panelName: selectedPanel.displayName,
+          panelPowerWatts: selectedPanel.powerWatts,
+          requiredPanels: result.requiredPanels,
+          totalPvPowerWatts: result.totalPanelPowerWatts,
+          panelLengthMm: selectedPanel.lengthMm,
+          panelWidthMm: selectedPanel.widthMm,
+          inverterName: selectedOption.inverter.displayName,
+          inverterQuantity: selectedOption.requiredInverters,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo guardar la selección eléctrica: $error'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  AcConductorMaterial? _acMaterialFromKey(String? key) {
+    if (key == null) return null;
+
+    for (final value in AcConductorMaterial.values) {
+      if (value.name == key) return value;
+    }
+
+    return null;
+  }
+
+  AcPhaseType? _acPhaseTypeFromKey(String? key) {
+    if (key == null) return null;
+
+    for (final value in AcPhaseType.values) {
+      if (value.name == key) return value;
+    }
+
+    return null;
   }
 
   ElectricalAcInput _buildAcInput() {
@@ -339,6 +479,7 @@ class _DimensionamientoElectricoScreenState
   }
 
   Future<void> _openInverterSelector({
+    required String activeDraftId,
     required ElectricalDimensioningResult result,
   }) async {
     final searchController = TextEditingController();
@@ -464,6 +605,10 @@ class _DimensionamientoElectricoScreenState
                                                 option.inverter.id;
                                             _expandedInverterId = null;
                                           });
+                                          _persistSelection(
+                                            activeDraftId: activeDraftId,
+                                            inverterId: option.inverter.id,
+                                          );
                                           Navigator.of(sheetContext).pop();
                                         }
                                       : null,

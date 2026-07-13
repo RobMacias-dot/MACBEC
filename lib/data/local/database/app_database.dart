@@ -399,6 +399,48 @@ class AuditLogs extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+class QuotationDraftElectricalSelections extends Table with LocalFirstColumns {
+  TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
+  TextColumn get inverterId => text().references(Inverters, #id)();
+  RealColumn get acDistanceMeters => real().nullable()();
+  RealColumn get acVoltage => real().nullable()();
+  TextColumn get acMaterial => text().nullable()();
+  TextColumn get acPhaseType => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class QuotationDraftCommercialQuotes extends Table with LocalFirstColumns {
+  TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
+
+  RealColumn get generalUtilityRatePercent => real()();
+  RealColumn get ivaRatePercent => real()();
+  RealColumn get discountAmount => real().withDefault(const Constant(0))();
+  RealColumn get advancePaymentAmount =>
+      real().withDefault(const Constant(0))();
+  TextColumn get currency => text().withDefault(const Constant('MXN'))();
+
+  RealColumn get panelUnitCost => real()();
+  RealColumn get panelUnitPrice => real()();
+  IntColumn get panelQuantity => integer()();
+
+  RealColumn get inverterUnitCost => real()();
+  RealColumn get inverterUnitPrice => real()();
+  IntColumn get inverterQuantity => integer()();
+
+  RealColumn get subtotal => real()();
+  RealColumn get ivaAmount => real()();
+  RealColumn get total => real()();
+
+  TextColumn get quotationPdfDocumentId =>
+      text().nullable().references(Documents, #id)();
+  DateTimeColumn get pdfGeneratedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class SyncQueue extends Table with LocalFirstColumns {
   TextColumn get entityType => text()();
   TextColumn get entityId => text()();
@@ -436,6 +478,8 @@ class SyncQueue extends Table with LocalFirstColumns {
     PvCalculations,
     Quotations,
     QuotationItems,
+    QuotationDraftElectricalSelections,
+    QuotationDraftCommercialQuotes,
     CompanySettings,
     AppSettings,
     AuditLogs,
@@ -446,7 +490,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -515,6 +559,10 @@ class AppDatabase extends _$AppDatabase {
               panels,
               panels.isActive,
             );
+          }
+          if (from < 8) {
+            await m.createTable(quotationDraftElectricalSelections);
+            await m.createTable(quotationDraftCommercialQuotes);
           }
         },
       );
