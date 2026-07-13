@@ -3,12 +3,20 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../data/files/file_storage_service.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../configuracion/data/company_settings_repository.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
+import '../../../cotizaciones/domain/entities/quotation_draft.dart';
+import '../../../documentos_pdf/data/pdf_service.dart';
+import '../../../documentos_pdf/domain/entities/quotation_pdf_data.dart';
+import '../../../documentos_pdf/domain/entities/structure_technical_pdf_data.dart';
 import '../../data/structure_design_repository.dart';
 import '../../domain/entities/structure_design_selection.dart';
 import '../../domain/structure_design_context.dart';
@@ -37,6 +45,7 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
   StructureFixingType _fixingType = StructureFixingType.chemicalAnchor;
   bool _initializedFromPersisted = false;
   bool _isSaving = false;
+  bool _isGeneratingPdf = false;
 
   @override
   void initState() {
@@ -204,6 +213,30 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isGeneratingPdf
+                        ? null
+                        : () => _generateStructuralPdf(
+                              activeDraftId: activeDraftId,
+                              result: result,
+                            ),
+                    icon: _isGeneratingPdf
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.picture_as_pdf_outlined),
+                    label: Text(
+                      _isGeneratingPdf
+                          ? 'Generando...'
+                          : 'Generar PDF técnico estructural',
+                    ),
+                  ),
+                ),
               ],
             ] else if (result != null) ...[
               const SizedBox(height: 16),
@@ -319,6 +352,79 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
       if (mounted) {
         setState(() {
           _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _generateStructuralPdf({
+    required String activeDraftId,
+    required InclinedFlatRoofResult result,
+  }) async {
+    setState(() {
+      _isGeneratingPdf = true;
+    });
+
+    try {
+      final designContext = widget.designContext!;
+      final drafts =
+          await ref.read(quotationDraftsControllerProvider.future);
+      QuotationDraft? draft;
+      for (final item in drafts) {
+        if (item.id == activeDraftId) {
+          draft = item;
+          break;
+        }
+      }
+
+      final companyProfile =
+          await ref.read(companySettingsRepositoryProvider).getCompanyProfile();
+
+      final data = StructureTechnicalPdfData(
+        draftCode:
+            draft?.draftCode ?? activeDraftId.substring(0, 8).toUpperCase(),
+        generatedAt: DateTime.now(),
+        company: QuotationPdfCompanyInfo(
+          companyName: (companyProfile?.companyName.trim().isEmpty ?? true)
+              ? AppConstants.companyName
+              : companyProfile!.companyName,
+          phone: companyProfile?.phone ?? '',
+          email: companyProfile?.email ?? '',
+          address: companyProfile?.address ?? '',
+        ),
+        projectLabel: draft?.prospectName ?? designContext.panelName,
+        mountTypeLabel: _mountType.label,
+        fixingTypeLabel: _fixingType.label,
+        panelLengthMm: designContext.panelLengthMm ?? 0,
+        panelWidthMm: designContext.panelWidthMm ?? 0,
+        result: result,
+      );
+
+      final bytes =
+          await ref.read(pdfServiceProvider).generateStructuralPdf(data);
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'estructura_${data.draftCode}_$timestamp.pdf';
+
+      await ref.read(fileStorageServiceProvider).saveBytes(
+            bytes: bytes,
+            fileName: fileName,
+            subfolder: 'quotation_drafts/$activeDraftId/estructura',
+          );
+
+      if (!mounted) return;
+
+      await Printing.sharePdf(bytes: bytes, filename: fileName);
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo generar el PDF: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingPdf = false;
         });
       }
     }
