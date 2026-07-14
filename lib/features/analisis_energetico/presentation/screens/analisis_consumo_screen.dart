@@ -11,8 +11,11 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../application/energy_analysis_controller.dart';
+import '../../data/nasa_power_client.dart';
+import '../../data/solar_radiation_repository.dart';
 import '../../domain/entities/quotation_draft_consumption.dart';
 import '../../domain/entities/quotation_draft_pv_calculation.dart';
+import '../../domain/mexico_states.dart';
 
 class AnalisisConsumoScreen extends ConsumerStatefulWidget {
   const AnalisisConsumoScreen({super.key});
@@ -34,6 +37,8 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
   String? _prefilledDraftId;
   _CalculationResult? _result;
   bool _isSaving = false;
+  String? _selectedState;
+  bool _isLoadingRadiation = false;
 
   static const double _lossFactor = 0.80;
 
@@ -175,6 +180,49 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                                 ),
                                 const SizedBox(height: 12),
                               ],
+                              DropdownButtonFormField<String>(
+                                initialValue: _selectedState,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Estado (para radiación solar)',
+                                  prefixIcon: Icon(Icons.map_outlined),
+                                ),
+                                items: [
+                                  for (final state in MexicoStates.values)
+                                    DropdownMenuItem(
+                                      value: state.name,
+                                      child: Text(state.name),
+                                    ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() => _selectedState = value);
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: (_selectedState == null ||
+                                          _isLoadingRadiation)
+                                      ? null
+                                      : _loadPeakSunHoursForState,
+                                  icon: _isLoadingRadiation
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.satellite_alt_outlined),
+                                  label: Text(
+                                    _isLoadingRadiation
+                                        ? 'Consultando...'
+                                        : 'Obtener horas solares del estado (NASA)',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               TextFormField(
                                 controller: _peakSunHoursController,
                                 textInputAction: TextInputAction.next,
@@ -185,7 +233,7 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'Horas solares pico',
                                   helperText:
-                                      'Captura las horas solares pico del sitio.',
+                                      'Captura manual o desde NASA. Siempre editable.',
                                   suffixText: 'h',
                                   prefixIcon: Icon(Icons.wb_sunny_outlined),
                                 ),
@@ -445,6 +493,86 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
       generationPerPanelKwhDay: generationPerPanelKwhDay,
       requiredPanels: requiredPanels,
     );
+  }
+
+  Future<void> _loadPeakSunHoursForState() async {
+    final stateName = _selectedState;
+    if (stateName == null) return;
+
+    setState(() {
+      _isLoadingRadiation = true;
+    });
+
+    try {
+      final repository = ref.read(solarRadiationRepositoryProvider);
+
+      // Offline-first: si ya hay un valor guardado para el estado, se usa
+      // directamente sin llamar a la red.
+      final cached = await repository.getStateAverage(stateName);
+
+      if (cached != null) {
+        setState(() {
+          _peakSunHoursController.text = cached.peakSunHours.toStringAsFixed(2);
+        });
+        _calculate();
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Se usó el valor guardado localmente.'),
+          ),
+        );
+        return;
+      }
+
+      final location = MexicoStates.findByName(stateName);
+      if (location == null) return;
+
+      final annualPeakSunHours = await ref
+          .read(nasaPowerClientProvider)
+          .fetchAnnualPeakSunHours(
+            latitude: location.latitude,
+            longitude: location.longitude,
+          );
+
+      if (annualPeakSunHours == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No hay conexión o no se pudo consultar NASA. Captura las '
+              'horas solares manualmente.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      await repository.upsertStateAverage(
+        stateName: stateName,
+        peakSunHours: annualPeakSunHours,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      );
+
+      setState(() {
+        _peakSunHoursController.text = annualPeakSunHours.toStringAsFixed(2);
+      });
+      _calculate();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Horas solares obtenidas de NASA POWER y guardadas.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingRadiation = false;
+        });
+      }
+    }
   }
 
   void _calculate() {

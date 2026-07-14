@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Requerido solo para consultar radiación solar (NASA POWER) cuando
+         hay conexión; la app funciona sin internet usando datos guardados
+         localmente o captura manual. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="macbec_solar_app"
         android:name="${applicationName}"
