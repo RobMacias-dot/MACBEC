@@ -4,7 +4,7 @@
          localmente o captura manual. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="macbec_solar_app"
+        android:label="MacBec"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

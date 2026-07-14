@@ -54,7 +54,7 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
           SectionCard(
             title: 'Agregar recibo CFE',
             subtitle:
-                'Puedes tomar una foto, elegir una imagen desde galería o adjuntar un PDF. El archivo se guardará localmente dentro de la app.',
+                'Puedes tomar fotos del frente y reverso con la cámara, elegir una imagen desde galería o adjuntar un PDF. El archivo se guardará localmente dentro de la app.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -64,9 +64,10 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
                 ],
                 _ReceiptActionButton(
                   icon: Icons.photo_camera_outlined,
-                  label: 'Tomar foto',
-                  description: 'Usar la cámara del dispositivo.',
-                  onPressed: _isSaving ? null : _pickFromCamera,
+                  label: 'Tomar foto (frente y reverso)',
+                  description:
+                      'Captura el frente y, si aplica, el reverso del recibo con la cámara.',
+                  onPressed: _isSaving ? null : _captureReceiptWithCamera,
                 ),
                 const SizedBox(height: 12),
                 _ReceiptActionButton(
@@ -122,21 +123,114 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
     );
   }
 
-  Future<void> _pickFromCamera() async {
-    final pickedImage = await _imagePicker.pickImage(
+  Future<void> _captureReceiptWithCamera() async {
+    final activeDraftId = ref.read(activeQuotationDraftIdProvider);
+
+    if (activeDraftId == null) {
+      _showErrorMessage(
+        'Primero selecciona o crea un prospecto para asociar el recibo CFE.',
+      );
+      return;
+    }
+
+    final frontImage = await _imagePicker.pickImage(
       source: ImageSource.camera,
       imageQuality: 85,
     );
 
-    if (pickedImage == null) return;
+    if (frontImage == null) return;
 
-    final sourceFile = File(pickedImage.path);
+    if (!mounted) return;
 
-    await _saveReceiptFile(
-      sourceFile: sourceFile,
-      originalFileName: p.basename(pickedImage.path),
-      forcedMimeType: _guessMimeType(pickedImage.path),
+    final captureBackSide = await _confirmCaptureBackSide();
+
+    XFile? backImage;
+    if (captureBackSide) {
+      backImage = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final frontSaved = await _persistReceiptFile(
+        sourceFile: File(frontImage.path),
+        originalFileName: 'recibo_cfe_frente${p.extension(frontImage.path)}',
+        draftId: activeDraftId,
+        forcedMimeType: _guessMimeType(frontImage.path),
+      );
+
+      var savedFileNames = frontSaved.fileName;
+      _SavedReceiptFile? backSaved;
+
+      if (backImage != null) {
+        backSaved = await _persistReceiptFile(
+          sourceFile: File(backImage.path),
+          originalFileName: 'recibo_cfe_reverso${p.extension(backImage.path)}',
+          draftId: activeDraftId,
+          forcedMimeType: _guessMimeType(backImage.path),
+        );
+        savedFileNames = '$savedFileNames, ${backSaved.fileName}';
+      }
+
+      await _runOcrSuggestion(
+        frontSaved.localPath,
+        extraImagePath: backSaved?.localPath,
+      );
+
+      ref.invalidate(quotationDraftsControllerProvider);
+
+      if (!mounted) return;
+
+      setState(() {
+        _lastSavedFileName = savedFileNames;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Recibo CFE guardado correctamente.'),
+        ),
+      );
+
+      context.push(AppRoutes.reciboCfeRevision);
+    } catch (error) {
+      if (!mounted) return;
+      _showErrorMessage('No se pudo guardar el recibo CFE: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<bool> _confirmCaptureBackSide() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Foto del frente capturada'),
+        content: const Text(
+          '¿Deseas tomar también la foto del reverso del recibo?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Omitir reverso'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Tomar reverso'),
+          ),
+        ],
+      ),
     );
+
+    return result ?? false;
   }
 
   Future<void> _pickFromGallery() async {
@@ -202,37 +296,26 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
     });
 
     try {
-      final copiedFile = await _copyFileToPrivateStorage(
+      final saved = await _persistReceiptFile(
         sourceFile: sourceFile,
         originalFileName: originalFileName,
         draftId: activeDraftId,
+        forcedMimeType: forcedMimeType,
+        forcedSizeBytes: forcedSizeBytes,
       );
 
-      final fileName = p.basename(copiedFile.path);
-      final sizeBytes = forcedSizeBytes ?? await copiedFile.length();
-      final mimeType = forcedMimeType ?? _guessMimeType(fileName);
+      final mimeType = forcedMimeType ?? _guessMimeType(saved.fileName);
 
       if (mimeType != null && mimeType.startsWith('image/')) {
-        await _runOcrSuggestion(copiedFile.path);
+        await _runOcrSuggestion(saved.localPath);
       }
-
-      await ref.read(quotationDraftRepositoryProvider).attachCfeReceiptDocument(
-            AttachCfeReceiptDocumentInput(
-              draftId: activeDraftId,
-              localPath: copiedFile.path,
-              fileName: fileName,
-              documentType: 'cfe_receipt',
-              mimeType: mimeType,
-              sizeBytes: sizeBytes,
-            ),
-          );
 
       ref.invalidate(quotationDraftsControllerProvider);
 
       if (!mounted) return;
 
       setState(() {
-        _lastSavedFileName = fileName;
+        _lastSavedFileName = saved.fileName;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -254,19 +337,62 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
     }
   }
 
-  Future<void> _runOcrSuggestion(String imagePath) async {
+  Future<_SavedReceiptFile> _persistReceiptFile({
+    required File sourceFile,
+    required String originalFileName,
+    required String draftId,
+    String? forcedMimeType,
+    int? forcedSizeBytes,
+  }) async {
+    final copiedFile = await _copyFileToPrivateStorage(
+      sourceFile: sourceFile,
+      originalFileName: originalFileName,
+      draftId: draftId,
+    );
+
+    final fileName = p.basename(copiedFile.path);
+    final sizeBytes = forcedSizeBytes ?? await copiedFile.length();
+    final mimeType = forcedMimeType ?? _guessMimeType(fileName);
+
+    await ref.read(quotationDraftRepositoryProvider).attachCfeReceiptDocument(
+          AttachCfeReceiptDocumentInput(
+            draftId: draftId,
+            localPath: copiedFile.path,
+            fileName: fileName,
+            documentType: 'cfe_receipt',
+            mimeType: mimeType,
+            sizeBytes: sizeBytes,
+          ),
+        );
+
+    return _SavedReceiptFile(localPath: copiedFile.path, fileName: fileName);
+  }
+
+  Future<void> _runOcrSuggestion(
+    String imagePath, {
+    String? extraImagePath,
+  }) async {
     setState(() {
       _isRunningOcr = true;
     });
 
     try {
-      final rawText = await ref.read(ocrServiceProvider).extractTextDraft(
-            imagePath,
-          );
+      final ocrService = ref.read(ocrServiceProvider);
+      final rawText = await ocrService.extractTextDraft(imagePath);
 
-      if (rawText == null) return;
+      var combinedText = rawText ?? '';
 
-      final suggestion = CfeReceiptTextParser.parse(rawText);
+      if (extraImagePath != null) {
+        final extraText = await ocrService.extractTextDraft(extraImagePath);
+        if (extraText != null && extraText.isNotEmpty) {
+          combinedText =
+              combinedText.isEmpty ? extraText : '$combinedText\n$extraText';
+        }
+      }
+
+      if (combinedText.isEmpty) return;
+
+      final suggestion = CfeReceiptTextParser.parse(combinedText);
 
       if (!suggestion.isEmpty) {
         ref.read(cfeOcrSuggestionProvider.notifier).state = suggestion;
@@ -337,6 +463,13 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
       SnackBar(content: Text(message)),
     );
   }
+}
+
+class _SavedReceiptFile {
+  const _SavedReceiptFile({required this.localPath, required this.fileName});
+
+  final String localPath;
+  final String fileName;
 }
 
 class _ReceiptActionButton extends StatelessWidget {
