@@ -67,6 +67,29 @@ El proyecto ya cuenta con una base funcional local-first y flujo técnico prelim
   - Caída de tensión preliminar.
   - Snapshot técnico preliminar copiable.
 - Navegación global con botón de regreso y acceso al menú principal.
+- Diseño de estructura (montaje inclinado sobre losa plana) con
+  distribución de módulos, patas, riel, material de ángulo y persistencia
+  por cotización.
+- Módulo de Proyectos: estados con historial de cambios, tipos de
+  instalación, relación cliente → proyecto → cotización.
+- Cotización comercial: utilidad general y por partida, IVA, descuento,
+  anticipo/esquema de pagos, versionado con marca vigente/aceptada.
+- Generación de PDF de cotización para cliente (compartir/imprimir).
+- Generación de propuesta técnica / memoria de cálculo en PDF.
+- Generación de PDF técnico de estructura con diagramas (planta, lateral,
+  frontal, trasera) y lista de materiales.
+- OCR local (ML Kit) de recibo CFE con sugerencias editables, nunca
+  automáticas, para precargar la revisión.
+- Módulo de contrato: plantilla dinámica + firma digital en pantalla
+  (cliente y proveedor) + PDF firmado.
+- Datos fiscales del cliente y pre-factura interna (no CFDI timbrado).
+- Expediente por proyecto: consolida y comparte todos los documentos
+  generados en el flujo de cotización.
+- Radiación solar por estado vía NASA POWER, con caché local
+  offline-first; sync_queue activo para una futura sincronización con
+  backend.
+- Datos de ejemplo cargables desde Configuración para probar el flujo
+  completo.
 
 ---
 
@@ -326,18 +349,21 @@ Snapshot técnico preliminar
 
 ## Roadmap inmediato
 
-Próximas fases recomendadas:
+Las 11 fases planeadas (refactor + cotización + estructura + contrato +
+pre-factura + expediente + radiación solar) están implementadas. Pendientes
+reales para siguientes fases, no cubiertos por falta de una fuente técnica
+o de negocio confiable para inventarlos:
 
-1. Guardar snapshot técnico definitivo en SQLite.
-2. Conectar dimensionamiento con cotización económica.
-3. Integrar precios, utilidad, IVA, mano de obra y comisión.
-4. Generar propuesta técnica PDF.
-5. Desarrollar módulo de estructura.
-6. Conectar expediente final.
-7. Preparar contratos y firma.
-8. Preparar pre-factura.
-9. Evaluar OCR real para recibos CFE y datasheets.
-10. Preparar sincronización futura.
+1. Tipos de montaje "Coplanar sobre techo inclinado", "Elevado tipo mesa"
+   y "Montaje en suelo" (solo existe el algoritmo de losa plana inclinada
+   en los documentos funcionales).
+2. Mano de obra, estructura, cableado y demás partidas como líneas de
+   costo propias en la cotización (hoy solo paneles e inversor tienen
+   precio de compra capturado).
+3. CFDI real timbrado ante un PAC (la pre-factura ya deja la base lista).
+4. Revisión legal profesional de la plantilla de contrato antes de usarla
+   como documento vinculante real.
+5. Backend real para que sync_queue tenga algo con qué sincronizar.
 
 ---
 
@@ -354,7 +380,7 @@ Próximas fases recomendadas:
 
 ## Estado de estabilidad
 
-Al cierre de la Fase 6:
+Al cierre de la Fase 11:
 
 ```text
 flutter analyze

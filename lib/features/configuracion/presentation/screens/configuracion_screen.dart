@@ -7,6 +7,7 @@ import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../application/commercial_settings_controller.dart';
 import '../../application/company_settings_controller.dart';
+import '../../data/seed_data_service.dart';
 import '../../domain/entities/commercial_settings.dart';
 import '../../domain/entities/company_profile.dart';
 
@@ -181,6 +182,53 @@ class _ConfiguracionScreenState extends ConsumerState<ConfiguracionScreen> {
     context.go(AppRoutes.login);
   }
 
+  Future<void> _seedSampleData(BuildContext context) async {
+    final shouldSeed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Cargar datos de ejemplo'),
+          content: const Text(
+            'Se agregará un cliente, un proyecto, 2 paneles y 2 inversores '
+            'de ejemplo para poder probar el flujo completo de cotización. '
+            'Solo úsalo en pruebas, no en datos reales de producción.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.science_outlined),
+              label: const Text('Cargar datos'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSeed != true) return;
+
+    try {
+      await ref.read(seedDataServiceProvider).seedSampleData();
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Datos de ejemplo cargados correctamente.'),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudieron cargar los datos: $error')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _companyNameController.dispose();
@@ -268,6 +316,8 @@ class _ConfiguracionScreenState extends ConsumerState<ConfiguracionScreen> {
           _SecurityCard(
             onSignOut: () => _confirmSignOut(context, ref),
           ),
+          const SizedBox(height: 16),
+          _SeedDataCard(onSeed: () => _seedSampleData(context)),
           const SizedBox(height: 16),
           const _PendingSettingsCard(),
         ],
@@ -730,6 +780,48 @@ class _SecurityCard extends StatelessWidget {
                 onPressed: onSignOut,
                 icon: const Icon(Icons.logout),
                 label: const Text('Cerrar sesión'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SeedDataCard extends StatelessWidget {
+  const _SeedDataCard({required this.onSeed});
+
+  final VoidCallback onSeed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Datos de ejemplo',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Agrega un cliente, un proyecto y catálogo de ejemplo para '
+              'probar el flujo completo de cotización de principio a fin. '
+              'Solo para pruebas.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onSeed,
+                icon: const Icon(Icons.science_outlined),
+                label: const Text('Cargar datos de ejemplo'),
               ),
             ),
           ],
