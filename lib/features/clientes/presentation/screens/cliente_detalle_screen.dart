@@ -24,6 +24,12 @@ class ClienteDetalleScreen extends ConsumerWidget {
       title: 'Detalle de cliente',
       actions: [
         IconButton(
+          tooltip: 'Datos fiscales',
+          onPressed: () =>
+              context.push(AppRoutes.clienteDatosFiscales, extra: clientId),
+          icon: const Icon(Icons.receipt_long_outlined),
+        ),
+        IconButton(
           tooltip: 'Editar cliente',
           onPressed: () =>
               context.push(AppRoutes.clienteForm, extra: clientId),

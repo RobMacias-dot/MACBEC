@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/constants/app_assets.dart';
 import '../../estructura/domain/structure_design_rules.dart';
 import '../domain/entities/contract_pdf_data.dart';
+import '../domain/entities/pre_invoice_pdf_data.dart';
 import '../domain/entities/quotation_pdf_data.dart';
 import '../domain/entities/structure_technical_pdf_data.dart';
 import '../domain/entities/technical_proposal_pdf_data.dart';
@@ -195,6 +196,91 @@ class PdfService {
         pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
       ],
     );
+  }
+
+  Future<Uint8List> generatePreInvoicePdf(PreInvoicePdfData data) async {
+    final document = pw.Document();
+    final logoImage = await _loadLogo();
+    final currencyFormatter = NumberFormat.currency(
+      locale: 'es_MX',
+      symbol: r'$',
+      decimalDigits: 2,
+    );
+
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.letter,
+        margin: const pw.EdgeInsets.all(32),
+        header: (context) => _buildHeader(
+          company: data.company,
+          documentLabel: 'Pre-factura ${data.folio ?? data.draftCode}',
+          generatedAt: data.generatedAt,
+          logo: logoImage,
+        ),
+        footer: (context) => _buildFooter(context, data.company),
+        build: (context) => [
+          _buildTitle('Pre-factura (documento interno)'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Documento interno de referencia. No es un CFDI timbrado ante el '
+            'SAT.',
+            style: const pw.TextStyle(fontSize: 9, color: _mutedColor),
+          ),
+          pw.SizedBox(height: 16),
+          _sectionContainer(
+            title: 'Datos fiscales del cliente',
+            child: pw.TableHelper.fromTextArray(
+              border: null,
+              cellAlignment: pw.Alignment.centerLeft,
+              headerCount: 0,
+              cellPadding:
+                  const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+              cellStyle: const pw.TextStyle(fontSize: 9.5),
+              data: [
+                ['Cliente', data.clientName],
+                if (data.clientLegalName != null)
+                  ['Razón social', data.clientLegalName!],
+                if (data.clientRfc != null) ['RFC', data.clientRfc!],
+                if (data.clientFiscalRegimeLabel != null)
+                  ['Régimen fiscal', data.clientFiscalRegimeLabel!],
+                if (data.clientFiscalZipCode != null)
+                  ['CP fiscal', data.clientFiscalZipCode!],
+                if (data.cfdiUseLabel != null)
+                  ['Uso CFDI', data.cfdiUseLabel!],
+                ['Forma de pago', data.paymentFormLabel],
+                ['Método de pago', data.paymentMethodLabel],
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 16),
+          _sectionContainer(
+            title: 'Importes',
+            child: pw.TableHelper.fromTextArray(
+              border: null,
+              cellAlignment: pw.Alignment.centerLeft,
+              headerCount: 0,
+              cellPadding:
+                  const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              data: [
+                ['Subtotal', currencyFormatter.format(data.subtotal)],
+                ['IVA', currencyFormatter.format(data.ivaAmount)],
+                ['Total', currencyFormatter.format(data.total)],
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Text(
+            'Preparado para timbrado futuro ante un PAC (Proveedor '
+            'Autorizado de Certificación). Este documento no sustituye un '
+            'CFDI válido.',
+            style: const pw.TextStyle(fontSize: 8, color: _mutedColor),
+          ),
+        ],
+      ),
+    );
+
+    return document.save();
   }
 
   Future<Uint8List> generateStructuralPdf(StructureTechnicalPdfData data) async {

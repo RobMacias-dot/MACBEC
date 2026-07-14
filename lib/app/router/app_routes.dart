@@ -10,6 +10,7 @@ class AppRoutes {
   static const clientes = '/clientes';
   static const clienteForm = '/clientes/form';
   static const clienteDetalle = '/clientes/detalle';
+  static const clienteDatosFiscales = '/clientes/datos-fiscales';
 
   static const proyectoForm = '/proyectos/form';
   static const proyectoDetalle = '/proyectos/detalle';
@@ -37,6 +38,8 @@ class AppRoutes {
 
   static const contrato = '/cotizacion/contrato';
   static const contratoFirma = '/cotizacion/contrato/firma';
+
+  static const prefactura = '/cotizacion/prefactura';
 
   static const expediente = '/expediente';
   static const configuracion = '/configuracion';

@@ -12,6 +12,7 @@ import '../../features/catalogo_tecnico/presentation/screens/catalogo_paneles_sc
 import '../../features/clientes/presentation/screens/cliente_detalle_screen.dart';
 import '../../features/clientes/presentation/screens/cliente_form_screen.dart';
 import '../../features/clientes/presentation/screens/clientes_screen.dart';
+import '../../features/clientes/presentation/screens/datos_fiscales_screen.dart';
 import '../../features/configuracion/presentation/screens/configuracion_screen.dart';
 import '../../features/contrato/presentation/screens/contrato_screen.dart';
 import '../../features/contrato/presentation/screens/firma_captura_screen.dart';
@@ -27,6 +28,7 @@ import '../../features/estructura/presentation/screens/estructura_screen.dart';
 import '../../features/expediente/presentation/screens/expediente_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/analisis_producto_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/proveedores_screen.dart';
+import '../../features/prefactura/presentation/screens/prefactura_screen.dart';
 import '../../features/proyectos/presentation/screens/proyecto_detalle_screen.dart';
 import '../../features/proyectos/presentation/screens/proyecto_form_screen.dart'
     show ProyectoFormArgs, ProyectoFormScreen;
@@ -72,6 +74,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.clienteDetalle,
         builder: (context, state) => ClienteDetalleScreen(
+          clientId: state.extra! as String,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.clienteDatosFiscales,
+        builder: (context, state) => DatosFiscalesScreen(
           clientId: state.extra! as String,
         ),
       ),
@@ -166,6 +174,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => FirmaCapturaScreen(
           args: state.extra! as FirmaCapturaArgs,
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.prefactura,
+        builder: (context, state) => const PrefacturaScreen(),
       ),
       GoRoute(
         path: AppRoutes.expediente,

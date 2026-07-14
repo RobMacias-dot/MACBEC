@@ -199,6 +199,15 @@ class _ContratoScreenState extends ConsumerState<ContratoScreen> {
               label: Text(_isBusy ? 'Generando...' : 'Generar y compartir PDF'),
             ),
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.push(AppRoutes.prefactura),
+              icon: const Icon(Icons.request_quote_outlined),
+              label: const Text('Ir a pre-factura'),
+            ),
+          ),
         ],
       ],
     );

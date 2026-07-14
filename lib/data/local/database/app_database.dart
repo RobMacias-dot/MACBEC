@@ -465,6 +465,30 @@ class QuotationDraftStructureDesigns extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+class PreInvoices extends Table with LocalFirstColumns {
+  TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
+
+  TextColumn get clientRfc => text().nullable()();
+  TextColumn get clientLegalName => text().nullable()();
+  TextColumn get clientFiscalRegime => text().nullable()();
+  TextColumn get clientFiscalZipCode => text().nullable()();
+  TextColumn get cfdiUse => text().nullable()();
+  TextColumn get paymentForm => text()();
+  TextColumn get paymentMethod => text()();
+
+  RealColumn get subtotal => real()();
+  RealColumn get ivaAmount => real()();
+  RealColumn get total => real()();
+
+  TextColumn get folio => text().nullable()();
+  TextColumn get pdfDocumentId =>
+      text().nullable().references(Documents, #id)();
+  DateTimeColumn get generatedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class Contracts extends Table with LocalFirstColumns {
   TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
   TextColumn get contractText => text()();
@@ -522,6 +546,7 @@ class SyncQueue extends Table with LocalFirstColumns {
     QuotationDraftCommercialQuotes,
     QuotationDraftStructureDesigns,
     Contracts,
+    PreInvoices,
     CompanySettings,
     AppSettings,
     AuditLogs,
@@ -532,7 +557,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -641,6 +666,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 12) {
             await m.createTable(contracts);
+          }
+          if (from < 13) {
+            await m.createTable(preInvoices);
           }
         },
       );
