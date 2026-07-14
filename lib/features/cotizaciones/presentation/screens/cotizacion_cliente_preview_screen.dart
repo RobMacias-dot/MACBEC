@@ -214,6 +214,15 @@ class _CotizacionClientePreviewScreenState
                   label: const Text('Generar propuesta técnica'),
                 ),
               ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push(AppRoutes.contrato),
+                  icon: const Icon(Icons.assignment_outlined),
+                  label: const Text('Ir a contrato y firma'),
+                ),
+              ),
             ],
           );
         },

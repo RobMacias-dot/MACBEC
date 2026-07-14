@@ -13,6 +13,8 @@ import '../../features/clientes/presentation/screens/cliente_detalle_screen.dart
 import '../../features/clientes/presentation/screens/cliente_form_screen.dart';
 import '../../features/clientes/presentation/screens/clientes_screen.dart';
 import '../../features/configuracion/presentation/screens/configuracion_screen.dart';
+import '../../features/contrato/presentation/screens/contrato_screen.dart';
+import '../../features/contrato/presentation/screens/firma_captura_screen.dart';
 import '../../features/cotizaciones/presentation/screens/cotizacion_cliente_preview_screen.dart';
 import '../../features/cotizaciones/presentation/screens/cotizacion_interna_screen.dart';
 import '../../features/cotizaciones/presentation/screens/cotizacion_prospecto_form_screen.dart';
@@ -154,6 +156,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.propuestaTecnica,
         builder: (context, state) => const PropuestaTecnicaScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.contrato,
+        builder: (context, state) => const ContratoScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.contratoFirma,
+        builder: (context, state) => FirmaCapturaScreen(
+          args: state.extra! as FirmaCapturaArgs,
+        ),
       ),
       GoRoute(
         path: AppRoutes.expediente,

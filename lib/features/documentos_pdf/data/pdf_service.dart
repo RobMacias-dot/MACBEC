@@ -8,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/constants/app_assets.dart';
 import '../../estructura/domain/structure_design_rules.dart';
+import '../domain/entities/contract_pdf_data.dart';
 import '../domain/entities/quotation_pdf_data.dart';
 import '../domain/entities/structure_technical_pdf_data.dart';
 import '../domain/entities/technical_proposal_pdf_data.dart';
@@ -104,6 +105,96 @@ class PdfService {
     );
 
     return document.save();
+  }
+
+  Future<Uint8List> generateContractPdf(ContractPdfData data) async {
+    final document = pw.Document();
+    final logoImage = await _loadLogo();
+
+    final paragraphs = data.contractText
+        .split('\n')
+        .map((line) => line.trimRight())
+        .toList();
+
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.letter,
+        margin: const pw.EdgeInsets.all(32),
+        header: (context) => _buildHeader(
+          company: data.company,
+          documentLabel: 'Contrato ${data.draftCode}',
+          generatedAt: data.generatedAt,
+          logo: logoImage,
+        ),
+        footer: (context) => _buildFooter(context, data.company),
+        build: (context) => [
+          for (final line in paragraphs)
+            line.isEmpty
+                ? pw.SizedBox(height: 8)
+                : pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 4),
+                    child: pw.Text(
+                      line,
+                      style: const pw.TextStyle(fontSize: 9.5),
+                    ),
+                  ),
+          pw.SizedBox(height: 20),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildSignatureBlock(
+                  label: 'Firma del cliente',
+                  signatureBytes: data.clientSignatureBytes,
+                ),
+              ),
+              pw.SizedBox(width: 20),
+              pw.Expanded(
+                child: _buildSignatureBlock(
+                  label: 'Firma del proveedor',
+                  signatureBytes: data.providerSignatureBytes,
+                ),
+              ),
+            ],
+          ),
+          if (data.signedAt != null) ...[
+            pw.SizedBox(height: 12),
+            pw.Text(
+              'Firmado el ${_formatDate(data.signedAt!)}.',
+              style: const pw.TextStyle(fontSize: 8, color: _mutedColor),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return document.save();
+  }
+
+  pw.Widget _buildSignatureBlock({
+    required String label,
+    Uint8List? signatureBytes,
+  }) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Container(
+          height: 70,
+          alignment: pw.Alignment.center,
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
+          ),
+          child: signatureBytes == null
+              ? pw.Text(
+                  'Pendiente',
+                  style: const pw.TextStyle(fontSize: 8, color: _mutedColor),
+                )
+              : pw.Image(pw.MemoryImage(signatureBytes), height: 65),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(label, style: const pw.TextStyle(fontSize: 9)),
+      ],
+    );
   }
 
   Future<Uint8List> generateStructuralPdf(StructureTechnicalPdfData data) async {

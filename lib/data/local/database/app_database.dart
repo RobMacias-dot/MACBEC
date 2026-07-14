@@ -465,6 +465,22 @@ class QuotationDraftStructureDesigns extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+class Contracts extends Table with LocalFirstColumns {
+  TextColumn get quotationDraftId => text().references(QuotationDrafts, #id)();
+  TextColumn get contractText => text()();
+  TextColumn get status => text().withDefault(const Constant('draft'))();
+  TextColumn get clientSignatureDocumentId =>
+      text().nullable().references(Documents, #id)();
+  TextColumn get providerSignatureDocumentId =>
+      text().nullable().references(Documents, #id)();
+  TextColumn get contractPdfDocumentId =>
+      text().nullable().references(Documents, #id)();
+  DateTimeColumn get signedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class SyncQueue extends Table with LocalFirstColumns {
   TextColumn get entityType => text()();
   TextColumn get entityId => text()();
@@ -505,6 +521,7 @@ class SyncQueue extends Table with LocalFirstColumns {
     QuotationDraftElectricalSelections,
     QuotationDraftCommercialQuotes,
     QuotationDraftStructureDesigns,
+    Contracts,
     CompanySettings,
     AppSettings,
     AuditLogs,
@@ -515,7 +532,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -621,6 +638,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 11) {
             await m.createTable(quotationDraftStructureDesigns);
+          }
+          if (from < 12) {
+            await m.createTable(contracts);
           }
         },
       );

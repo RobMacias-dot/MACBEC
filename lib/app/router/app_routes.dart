@@ -35,6 +35,9 @@ class AppRoutes {
   static const cotizacionClientePreview = '/cotizacion/cliente-preview';
   static const propuestaTecnica = '/cotizacion/propuesta-tecnica';
 
+  static const contrato = '/cotizacion/contrato';
+  static const contratoFirma = '/cotizacion/contrato/firma';
+
   static const expediente = '/expediente';
   static const configuracion = '/configuracion';
 }
