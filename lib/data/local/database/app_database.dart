@@ -104,6 +104,11 @@ class ProjectStatusHistory extends Table with LocalFirstColumns {
 class Documents extends Table with LocalFirstColumns {
   TextColumn get clientId => text().nullable().references(Clients, #id)();
   TextColumn get projectId => text().nullable().references(Projects, #id)();
+  // Sin FK real: QuotationDrafts ya referencia a Documents
+  // (cfeReceiptDocumentId), y Drift no admite referencias circulares
+  // entre tablas. Se mantiene como columna simple para poder ligar
+  // documentos a un borrador sin crear el ciclo.
+  TextColumn get quotationDraftId => text().nullable()();
   TextColumn get documentType => text()();
   TextColumn get localPath => text()();
   TextColumn get fileName => text()();
@@ -557,7 +562,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -669,6 +674,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 13) {
             await m.createTable(preInvoices);
+          }
+          if (from < 14) {
+            await m.addColumn(documents, documents.quotationDraftId);
           }
         },
       );

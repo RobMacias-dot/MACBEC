@@ -130,6 +130,7 @@ class ContractRepository {
       await _database.into(_database.documents).insert(
             DocumentsCompanion.insert(
               id: Value(documentId),
+              quotationDraftId: Value(input.quotationDraftId),
               documentType: input.role == SignatureRole.client
                   ? 'client_signature'
                   : 'provider_signature',
@@ -194,6 +195,7 @@ class ContractRepository {
       await _database.into(_database.documents).insert(
             DocumentsCompanion.insert(
               id: Value(documentId),
+              quotationDraftId: Value(quotationDraftId),
               documentType: 'contract_pdf',
               localPath: localPath,
               fileName: fileName,

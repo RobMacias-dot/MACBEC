@@ -25,6 +25,7 @@ import '../../features/dimensionamiento_electrico/presentation/screens/dimension
 import '../../features/documentos_pdf/presentation/screens/propuesta_tecnica_screen.dart';
 import '../../features/estructura/domain/structure_design_context.dart';
 import '../../features/estructura/presentation/screens/estructura_screen.dart';
+import '../../features/expediente/presentation/screens/expediente_proyecto_screen.dart';
 import '../../features/expediente/presentation/screens/expediente_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/analisis_producto_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/proveedores_screen.dart';
@@ -182,6 +183,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.expediente,
         builder: (context, state) => const ExpedienteScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.expedienteProyecto,
+        builder: (context, state) => ExpedienteProyectoScreen(
+          projectId: state.extra! as String,
+        ),
       ),
       GoRoute(
         path: AppRoutes.configuracion,

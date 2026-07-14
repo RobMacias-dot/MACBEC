@@ -17,6 +17,8 @@ import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../../documentos_pdf/data/pdf_service.dart';
 import '../../../documentos_pdf/domain/entities/quotation_pdf_data.dart';
 import '../../../documentos_pdf/domain/entities/structure_technical_pdf_data.dart';
+import '../../../expediente/data/documents_repository.dart';
+import '../../../expediente/domain/entities/document_record.dart';
 import '../../data/structure_design_repository.dart';
 import '../../domain/entities/structure_design_selection.dart';
 import '../../domain/structure_design_context.dart';
@@ -406,10 +408,19 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'estructura_${data.draftCode}_$timestamp.pdf';
 
-      await ref.read(fileStorageServiceProvider).saveBytes(
+      final file = await ref.read(fileStorageServiceProvider).saveBytes(
             bytes: bytes,
             fileName: fileName,
             subfolder: 'quotation_drafts/$activeDraftId/estructura',
+          );
+
+      await ref.read(documentsRepositoryProvider).attachDraftDocument(
+            quotationDraftId: activeDraftId,
+            documentType: DocumentTypes.structuralPdf,
+            localPath: file.path,
+            fileName: fileName,
+            mimeType: 'application/pdf',
+            sizeBytes: bytes.length,
           );
 
       if (!mounted) return;

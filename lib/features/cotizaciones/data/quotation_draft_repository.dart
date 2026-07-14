@@ -117,6 +117,7 @@ class QuotationDraftRepository {
       await _database.into(_database.documents).insert(
             DocumentsCompanion.insert(
               id: Value(documentId),
+              quotationDraftId: Value(input.draftId),
               documentType: input.documentType.trim(),
               localPath: input.localPath.trim(),
               fileName: input.fileName.trim(),

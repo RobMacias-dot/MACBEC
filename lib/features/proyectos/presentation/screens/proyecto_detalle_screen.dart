@@ -27,6 +27,14 @@ class ProyectoDetalleScreen extends ConsumerWidget {
       title: 'Detalle de proyecto',
       actions: [
         IconButton(
+          tooltip: 'Expediente',
+          onPressed: () => context.push(
+            AppRoutes.expedienteProyecto,
+            extra: projectId,
+          ),
+          icon: const Icon(Icons.folder_outlined),
+        ),
+        IconButton(
           tooltip: 'Editar proyecto',
           onPressed: () => context.push(
             AppRoutes.proyectoForm,

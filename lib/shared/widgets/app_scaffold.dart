@@ -114,6 +114,8 @@ class AppScaffold extends StatelessWidget {
         return AppRoutes.contrato;
       case AppRoutes.clienteDatosFiscales:
         return AppRoutes.clientes;
+      case AppRoutes.expedienteProyecto:
+        return AppRoutes.expediente;
       case AppRoutes.proyectoForm:
       case AppRoutes.proyectoDetalle:
         return AppRoutes.cotizacion;

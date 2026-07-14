@@ -42,5 +42,6 @@ class AppRoutes {
   static const prefactura = '/cotizacion/prefactura';
 
   static const expediente = '/expediente';
+  static const expedienteProyecto = '/expediente/proyecto';
   static const configuracion = '/configuracion';
 }

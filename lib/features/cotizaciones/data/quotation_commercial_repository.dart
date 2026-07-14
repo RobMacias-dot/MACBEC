@@ -255,6 +255,7 @@ class QuotationCommercialRepository {
       await _database.into(_database.documents).insert(
             DocumentsCompanion.insert(
               id: Value(documentId),
+              quotationDraftId: Value(input.draftId),
               documentType: 'quotation_pdf',
               localPath: input.localPath,
               fileName: input.fileName,

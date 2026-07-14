@@ -130,6 +130,7 @@ class PreInvoiceRepository {
       await _database.into(_database.documents).insert(
             DocumentsCompanion.insert(
               id: Value(documentId),
+              quotationDraftId: Value(quotationDraftId),
               documentType: 'pre_invoice_pdf',
               localPath: localPath,
               fileName: fileName,

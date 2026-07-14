@@ -12,6 +12,8 @@ import '../../../../shared/widgets/section_card.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/application/quotation_summary_provider.dart';
 import '../../../estructura/domain/structure_design_rules.dart';
+import '../../../expediente/data/documents_repository.dart';
+import '../../../expediente/domain/entities/document_record.dart';
 import '../../data/pdf_service.dart';
 import '../../domain/entities/quotation_pdf_data.dart';
 import '../../domain/entities/technical_proposal_pdf_data.dart';
@@ -234,10 +236,19 @@ class _PropuestaTecnicaScreenState
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'propuesta_tecnica_${data.draftCode}_$timestamp.pdf';
 
-      await ref.read(fileStorageServiceProvider).saveBytes(
+      final file = await ref.read(fileStorageServiceProvider).saveBytes(
             bytes: bytes,
             fileName: fileName,
             subfolder: 'quotation_drafts/$activeDraftId/propuesta_tecnica',
+          );
+
+      await ref.read(documentsRepositoryProvider).attachDraftDocument(
+            quotationDraftId: activeDraftId,
+            documentType: DocumentTypes.technicalProposalPdf,
+            localPath: file.path,
+            fileName: fileName,
+            mimeType: 'application/pdf',
+            sizeBytes: bytes.length,
           );
 
       if (!mounted) return;
