@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/widgets/generic_component_image.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
@@ -12,6 +13,7 @@ import '../../../catalogo_tecnico/application/inverter_catalog_controller.dart';
 import '../../../catalogo_tecnico/application/panel_catalog_controller.dart';
 import '../../../catalogo_tecnico/domain/entities/solar_panel.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
+import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../../estructura/domain/structure_design_context.dart';
 import '../../data/electrical_selection_repository.dart';
 import '../../domain/electrical_dimensioning_rules.dart';
@@ -226,6 +228,10 @@ class _DimensionamientoElectricoScreenState
                               )
                             : Column(
                                 children: [
+                                  const GenericComponentImage(
+                                    type: GenericComponentType.inverter,
+                                  ),
+                                  const SizedBox(height: 14),
                                   _DimensioningOptionTile(
                                     option: featuredOption,
                                     isSelected: selectedOption != null,
@@ -413,6 +419,11 @@ class _DimensionamientoElectricoScreenState
           );
 
       ref.invalidate(electricalSelectionProvider(activeDraftId));
+
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.electricalDimensioning,
+          );
 
       if (!mounted) return;
 
@@ -879,10 +890,20 @@ class _DcProtectionAndCableCard extends StatelessWidget {
         if (conduit != null) ...[
           const SizedBox(height: 10),
           _ResultTile(
-            icon: Icons.water_drop_outlined,
+            icon: Icons.plumbing,
             title: 'Tubería',
             value: conduit.suggestedConduitTradeSize,
           ),
+          if (!conduit.isStockedInCatalog) ...[
+            const SizedBox(height: 6),
+            _InfoRow(
+              icon: Icons.warning_amber_outlined,
+              text:
+                  '${conduit.suggestedConduitTradeSize} no está confirmada '
+                  'en el catálogo actual. Verifica disponibilidad con el '
+                  'proveedor.',
+            ),
+          ],
         ],
       ],
     );
@@ -1076,8 +1097,9 @@ class _TechnicalSnapshotCard extends StatelessWidget {
         if (conduit != null) ...[
           const SizedBox(height: 8),
           _InfoRow(
-            icon: Icons.water_drop_outlined,
-            text: 'Tubería DC: ${conduit.suggestedConduitTradeSize}.',
+            icon: Icons.plumbing,
+            text: 'Tubería DC: ${conduit.suggestedConduitTradeSize}'
+                '${conduit.isStockedInCatalog ? '' : ' (verificar disponibilidad)'}.',
           ),
         ],
         if (acCable != null) ...[

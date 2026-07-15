@@ -193,6 +193,20 @@ class QuotationDraftRepository {
     );
   }
 
+  Future<void> updateLastCompletedStep({
+    required String draftId,
+    required String step,
+  }) async {
+    await (_database.update(_database.quotationDrafts)
+          ..where((table) => table.id.equals(draftId)))
+        .write(
+      QuotationDraftsCompanion(
+        lastCompletedStep: Value(step),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<List<quotation_entity.QuotationDraft>> getAllActive() async {
     final query = _database.select(_database.quotationDrafts)
       ..where((draft) => draft.isDeleted.equals(false))
@@ -245,6 +259,7 @@ class QuotationDraftRepository {
       cfeTotalToPay: row.cfeTotalToPay,
       analysisPeakSunHours: row.analysisPeakSunHours,
       analysisPanelPowerWatts: row.analysisPanelPowerWatts,
+      lastCompletedStep: row.lastCompletedStep,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );

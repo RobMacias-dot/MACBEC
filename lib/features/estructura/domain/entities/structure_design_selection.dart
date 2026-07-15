@@ -11,6 +11,7 @@ class StructureDesignSelection {
     required this.frontLegCm,
     required this.createdAt,
     required this.updatedAt,
+    this.angleMaterial = 'steelPtr',
   });
 
   final String id;
@@ -22,6 +23,7 @@ class StructureDesignSelection {
   final int panelRows;
   final double inclinationDegrees;
   final double frontLegCm;
+  final String angleMaterial;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -36,6 +38,7 @@ class SaveStructureDesignSelectionInput {
     required this.panelRows,
     required this.inclinationDegrees,
     required this.frontLegCm,
+    this.angleMaterial = 'steelPtr',
   });
 
   final String mountType;
@@ -45,4 +48,5 @@ class SaveStructureDesignSelectionInput {
   final int panelRows;
   final double inclinationDegrees;
   final double frontLegCm;
+  final String angleMaterial;
 }

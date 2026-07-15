@@ -1,5 +1,6 @@
 class CfeReceiptOcrSuggestion {
   const CfeReceiptOcrSuggestion({
+    this.holderName,
     this.serviceAddress,
     this.rpu,
     this.tariff,
@@ -8,6 +9,7 @@ class CfeReceiptOcrSuggestion {
     this.totalToPay,
   });
 
+  final String? holderName;
   final String? serviceAddress;
   final String? rpu;
   final String? tariff;
@@ -16,6 +18,7 @@ class CfeReceiptOcrSuggestion {
   final double? totalToPay;
 
   bool get isEmpty =>
+      holderName == null &&
       serviceAddress == null &&
       rpu == null &&
       tariff == null &&
@@ -54,6 +57,7 @@ class CfeReceiptTextParser {
     final lines = normalized.split('\n').map((line) => line.trim()).toList();
 
     return CfeReceiptOcrSuggestion(
+      holderName: _findHolderName(lines),
       serviceAddress: _findAddress(lines),
       rpu: _findRpu(normalized),
       tariff: _findTariff(normalized),
@@ -141,17 +145,102 @@ class CfeReceiptTextParser {
   }
 
   static String? _findAddress(List<String> lines) {
-    for (final line in lines) {
-      final upperLine = line.toUpperCase();
+    final index = _findAddressLineIndex(lines);
+    if (index == null) return null;
+
+    final line = lines[index].trim();
+    return line.isEmpty ? null : line;
+  }
+
+  static int? _findAddressLineIndex(List<String> lines) {
+    for (var i = 0; i < lines.length; i++) {
+      final upperLine = lines[i].toUpperCase();
       if (upperLine.contains('CALLE') ||
           upperLine.contains('AV.') ||
           upperLine.contains('AVENIDA') ||
           upperLine.contains('COL.') ||
           upperLine.contains('COLONIA')) {
-        return line.trim().isEmpty ? null : line.trim();
+        return i;
       }
     }
 
     return null;
+  }
+
+  // Etiquetas y texto fijo típico de los recibos CFE que nunca son el
+  // nombre del titular, para descartarlos de la búsqueda heurística.
+  static const _holderNameBoilerplate = [
+    'COMISION FEDERAL',
+    'COMISIÓN FEDERAL',
+    'CFE',
+    'SUMINISTRADOR',
+    'RECIBO',
+    'RPU',
+    'RMU',
+    'TARIFA',
+    'PERIODO',
+    'PERÍODO',
+    'TOTAL',
+    'FACTURA',
+    'SERVICIO',
+    'CUENTA',
+    'MEDIDOR',
+    'AVISO',
+    'FECHA',
+    'LECTURA',
+    'KWH',
+    'CONSUMO',
+  ];
+
+  static String? _findHolderName(List<String> lines) {
+    final labeled = RegExp(
+      r'(?:Nombre\s*(?:del)?\s*(?:Titular|Usuario|Cliente)?|Titular\s*(?:del)?\s*(?:Servicio)?)\s*[:\-]\s*(.+)',
+      caseSensitive: false,
+    );
+
+    for (final line in lines) {
+      final match = labeled.firstMatch(line);
+      final candidate = match?.group(1)?.trim();
+
+      if (candidate != null &&
+          candidate.isNotEmpty &&
+          _looksLikeName(candidate)) {
+        return candidate;
+      }
+    }
+
+    // Sin una etiqueta explícita, el nombre suele imprimirse en una línea
+    // propia justo antes de la dirección del servicio.
+    final addressIndex = _findAddressLineIndex(lines);
+    if (addressIndex != null) {
+      for (var i = addressIndex - 1; i >= 0 && i >= addressIndex - 3; i--) {
+        final candidate = lines[i].trim();
+        if (_looksLikeName(candidate)) return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  static bool _looksLikeName(String candidate) {
+    if (candidate.isEmpty || candidate.length < 4 || candidate.length > 80) {
+      return false;
+    }
+
+    // Un nombre no debe contener dígitos ni símbolos de monto/etiqueta.
+    if (RegExp(r'[\d\$%]').hasMatch(candidate)) return false;
+
+    final upperCandidate = candidate.toUpperCase();
+    for (final boilerplate in _holderNameBoilerplate) {
+      if (upperCandidate.contains(boilerplate)) return false;
+    }
+
+    // Debe verse como al menos dos palabras (nombre + apellido).
+    final words = candidate
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .toList();
+
+    return words.length >= 2;
   }
 }

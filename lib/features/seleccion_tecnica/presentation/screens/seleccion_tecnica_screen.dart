@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/widgets/generic_component_image.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
@@ -11,6 +12,7 @@ import '../../../analisis_energetico/domain/entities/quotation_draft_pv_calculat
 import '../../../catalogo_tecnico/application/panel_catalog_controller.dart';
 import '../../../catalogo_tecnico/domain/entities/solar_panel.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
+import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../domain/technical_selection_rules.dart';
 
 class SeleccionTecnicaScreen extends ConsumerStatefulWidget {
@@ -260,6 +262,11 @@ class _SeleccionTecnicaScreenState
         ),
       );
 
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.technicalSelection,
+          );
+
       ref.invalidate(quotationDraftPvCalculationProvider(activeDraftId));
       ref.invalidate(quotationDraftsControllerProvider);
 
@@ -360,6 +367,8 @@ class _SelectedPanelSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        const GenericComponentImage(type: GenericComponentType.solarPanel),
+        const SizedBox(height: 14),
         _ResultTile(
           icon: Icons.solar_power_outlined,
           title: 'Potencia del panel',

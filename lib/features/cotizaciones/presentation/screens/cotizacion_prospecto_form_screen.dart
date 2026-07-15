@@ -6,8 +6,13 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/validators/validators.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../clientes/application/clients_controller.dart';
+import '../../../clientes/domain/entities/client.dart' as client_entity;
+import '../../../proyectos/application/projects_controller.dart';
+import '../../../proyectos/domain/entities/project.dart' as project_entity;
 import '../../application/quotation_draft_controller.dart';
 import '../../data/quotation_draft_repository.dart';
+import '../../domain/entities/quotation_draft.dart';
 import '../../domain/entities/quotation_draft_prospect.dart';
 
 class CotizacionProspectoFormScreen extends ConsumerStatefulWidget {
@@ -77,9 +82,28 @@ class _CotizacionProspectoFormScreenState
     );
 
     try {
+      final clientId = await ref.read(clientRepositoryProvider).create(
+            client_entity.SaveClientInput(
+              fullName: prospect.fullName,
+              phone: prospect.phone,
+              email: prospect.email,
+              address: prospect.address,
+              notes: prospect.notes,
+            ),
+          );
+
+      final projectId = await ref.read(projectRepositoryProvider).create(
+            project_entity.SaveProjectInput(
+              clientId: clientId,
+              name: prospect.fullName,
+              serviceAddress: prospect.address,
+            ),
+          );
+
       final draftId = await ref.read(quotationDraftRepositoryProvider).create(
             CreateQuotationDraftInput(
               prospectName: prospect.fullName,
+              projectId: projectId,
               phone: prospect.phone,
               whatsapp: prospect.whatsapp,
               email: prospect.email,
@@ -88,15 +112,25 @@ class _CotizacionProspectoFormScreenState
             ),
           );
 
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: draftId,
+            step: QuotationDraftStep.prospect,
+          );
+
       ref.read(activeQuotationDraftIdProvider.notifier).state = draftId;
       ref.read(quotationDraftProspectProvider.notifier).state = prospect;
       ref.invalidate(quotationDraftsControllerProvider);
+      ref.invalidate(clientsControllerProvider);
+      ref.invalidate(projectsControllerProvider);
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Prospecto guardado como pendiente de recibo CFE.'),
+          content: Text(
+            'Prospecto guardado. Se creó el cliente y el proyecto vinculado; '
+            'pendiente de recibo CFE.',
+          ),
         ),
       );
 

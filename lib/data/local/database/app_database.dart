@@ -151,6 +151,8 @@ class QuotationDrafts extends Table with LocalFirstColumns {
   RealColumn get analysisPeakSunHours => real().nullable()();
   RealColumn get analysisPanelPowerWatts => real().nullable()();
 
+  TextColumn get lastCompletedStep => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -259,6 +261,39 @@ class Cables extends Table with LocalFirstColumns {
   RealColumn get resistance => real().nullable()();
   RealColumn get purchasePrice => real().nullable()();
   TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Catálogo comercial genérico para materiales que no tienen tabla propia
+/// (estructura, protecciones CD/CA, material eléctrico, tubería/cable
+/// comercial, mano de obra). Espeja las columnas de la hoja
+/// `Catalogo_Productos` del Excel estándar de MacBec - ver Fase 6.22.
+class MaterialCatalogProducts extends Table with LocalFirstColumns {
+  TextColumn get codigoInterno => text().nullable()();
+  TextColumn get categoriaApp => text()();
+  TextColumn get subcategoria => text().nullable()();
+  TextColumn get marca => text().nullable()();
+  TextColumn get modelo => text().nullable()();
+  TextColumn get descripcion => text().nullable()();
+  TextColumn get unidadCompra => text().nullable()();
+  TextColumn get moneda => text().withDefault(const Constant('MXN'))();
+  RealColumn get precioCompra => real().nullable()();
+  RealColumn get precioMxn => real().nullable()();
+  BoolColumn get activo => boolean().withDefault(const Constant(true))();
+  BoolColumn get revisarPrecio =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get estadoParaCalculo => text().nullable()();
+  RealColumn get longitudNominalM => real().nullable()();
+  RealColumn get longitudUtilCalculoM => real().nullable()();
+
+  /// Clave estructurada de `tipo_elemento_estructura` (p. ej. RIEL,
+  /// PERFIL_PTR, PERFIL_ANGULO_ALUMINIO, CLAMP_INTERMEDIO, CLAMP_FINAL,
+  /// ANCLAJE_QUIMICO). Solo aplica a categoría ESTRUCTURA, pero se guarda
+  /// aquí porque es mucho más confiable para emparejar BOM que buscar
+  /// palabras clave en la descripción.
+  TextColumn get tipoElementoEstructura => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -443,6 +478,13 @@ class QuotationDraftCommercialQuotes extends Table with LocalFirstColumns {
   RealColumn get inverterUnitPrice => real()();
   IntColumn get inverterQuantity => integer()();
 
+  RealColumn get structureMaterialsCost =>
+      real().withDefault(const Constant(0))();
+  RealColumn get structureMaterialsPrice =>
+      real().withDefault(const Constant(0))();
+  BoolColumn get structureMaterialsHasMissingPrices =>
+      boolean().withDefault(const Constant(false))();
+
   RealColumn get subtotal => real()();
   RealColumn get ivaAmount => real()();
   RealColumn get total => real()();
@@ -465,6 +507,8 @@ class QuotationDraftStructureDesigns extends Table with LocalFirstColumns {
   IntColumn get panelRows => integer()();
   RealColumn get inclinationDegrees => real()();
   RealColumn get frontLegCm => real()();
+  TextColumn get angleMaterial =>
+      text().withDefault(const Constant('steelPtr'))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -541,6 +585,7 @@ class SyncQueue extends Table with LocalFirstColumns {
     Inverters,
     Cables,
     Conduits,
+    MaterialCatalogProducts,
     SolarRadiation,
     CfeReceipts,
     CfeConsumptions,
@@ -562,7 +607,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -677,6 +722,45 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 14) {
             await m.addColumn(documents, documents.quotationDraftId);
+          }
+          if (from < 15) {
+            await m.addColumn(
+              quotationDrafts,
+              quotationDrafts.lastCompletedStep,
+            );
+          }
+          if (from < 16) {
+            await m.addColumn(
+              quotationDraftStructureDesigns,
+              quotationDraftStructureDesigns.angleMaterial,
+            );
+          }
+          if (from < 17) {
+            await m.createTable(materialCatalogProducts);
+          }
+          if (from < 18) {
+            await m.addColumn(
+              materialCatalogProducts,
+              materialCatalogProducts.codigoInterno,
+            );
+            await m.addColumn(
+              materialCatalogProducts,
+              materialCatalogProducts.tipoElementoEstructura,
+            );
+          }
+          if (from < 19) {
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.structureMaterialsCost,
+            );
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.structureMaterialsPrice,
+            );
+            await m.addColumn(
+              quotationDraftCommercialQuotes,
+              quotationDraftCommercialQuotes.structureMaterialsHasMissingPrices,
+            );
           }
         },
       );

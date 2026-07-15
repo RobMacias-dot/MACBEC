@@ -132,4 +132,66 @@ void main() {
     expect(result.panelUtilityRatePercent, equals(10));
     expect(result.inverterUtilityRatePercent, isNull);
   });
+
+  test(
+      'el costo de estructura se suma al subtotal con la utilidad general '
+      'aplicada (Fase 6.22 conectado al total oficial)', () {
+    final withoutStructure = QuotationCommercialCalculator.calculate(
+      panel: panel,
+      panelQuantity: 10,
+      inverter: inverter,
+      inverterQuantity: 1,
+      generalUtilityRatePercent: 30,
+      ivaRatePercent: 16,
+      discountAmount: 0,
+      advancePaymentAmount: 0,
+      currency: 'MXN',
+    );
+
+    final withStructure = QuotationCommercialCalculator.calculate(
+      panel: panel,
+      panelQuantity: 10,
+      inverter: inverter,
+      inverterQuantity: 1,
+      generalUtilityRatePercent: 30,
+      ivaRatePercent: 16,
+      discountAmount: 0,
+      advancePaymentAmount: 0,
+      currency: 'MXN',
+      structureMaterialsCost: 5000,
+      structureMaterialsHasMissingPrices: true,
+    );
+
+    // 5000 de costo x 1.30 de utilidad general = 6500 agregados al subtotal.
+    expect(withStructure.structureMaterialsCost, equals(5000));
+    expect(withStructure.structureMaterialsPrice, closeTo(6500, 0.001));
+    expect(withStructure.structureMaterialsHasMissingPrices, isTrue);
+    expect(
+      withStructure.subtotal,
+      closeTo(withoutStructure.subtotal + 6500, 0.001),
+    );
+    expect(
+      withStructure.total,
+      greaterThan(withoutStructure.total),
+    );
+  });
+
+  test('sin costo de estructura, el precio de estructura es 0 y no se '
+      'marca como parcial', () {
+    final result = QuotationCommercialCalculator.calculate(
+      panel: panel,
+      panelQuantity: 10,
+      inverter: inverter,
+      inverterQuantity: 1,
+      generalUtilityRatePercent: 30,
+      ivaRatePercent: 16,
+      discountAmount: 0,
+      advancePaymentAmount: 0,
+      currency: 'MXN',
+    );
+
+    expect(result.structureMaterialsCost, equals(0));
+    expect(result.structureMaterialsPrice, equals(0));
+    expect(result.structureMaterialsHasMissingPrices, isFalse);
+  });
 }

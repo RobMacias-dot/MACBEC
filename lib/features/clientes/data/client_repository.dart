@@ -69,6 +69,20 @@ class ClientRepository {
     );
   }
 
+  Future<void> delete(String clientId) async {
+    final now = DateTime.now();
+
+    await (_database.update(_database.clients)
+          ..where((client) => client.id.equals(clientId)))
+        .write(
+      ClientsCompanion(
+        isDeleted: const Value(true),
+        deletedAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+  }
+
   client_entity.Client _mapRowToEntity(Client row) {
     return client_entity.Client(
       id: row.id,

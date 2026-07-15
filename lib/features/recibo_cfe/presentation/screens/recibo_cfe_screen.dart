@@ -9,11 +9,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/widgets/document_preview.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/data/quotation_draft_repository.dart';
+import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../application/ocr_service.dart';
 import '../../domain/cfe_receipt_text_parser.dart';
 
@@ -30,6 +32,8 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
   bool _isSaving = false;
   bool _isRunningOcr = false;
   String? _lastSavedFileName;
+  String? _lastSavedFilePath;
+  String? _lastSavedMimeType;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +105,13 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
                         avatar: const Icon(Icons.check_circle_outline),
                         label: Text('Archivo: $_lastSavedFileName'),
                       ),
+                      if (_lastSavedFilePath != null) ...[
+                        const SizedBox(height: 12),
+                        DocumentPreview(
+                          localPath: _lastSavedFilePath!,
+                          mimeType: _lastSavedMimeType,
+                        ),
+                      ],
                       if (_isRunningOcr) ...[
                         const SizedBox(height: 10),
                         const Row(
@@ -182,12 +193,19 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
         extraImagePath: backSaved?.localPath,
       );
 
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.cfeReceipt,
+          );
+
       ref.invalidate(quotationDraftsControllerProvider);
 
       if (!mounted) return;
 
       setState(() {
         _lastSavedFileName = savedFileNames;
+        _lastSavedFilePath = frontSaved.localPath;
+        _lastSavedMimeType = _guessMimeType(frontSaved.localPath);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -310,12 +328,19 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
         await _runOcrSuggestion(saved.localPath);
       }
 
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.cfeReceipt,
+          );
+
       ref.invalidate(quotationDraftsControllerProvider);
 
       if (!mounted) return;
 
       setState(() {
         _lastSavedFileName = saved.fileName;
+        _lastSavedFilePath = saved.localPath;
+        _lastSavedMimeType = mimeType;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

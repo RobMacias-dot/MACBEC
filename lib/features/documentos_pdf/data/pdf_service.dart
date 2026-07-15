@@ -23,11 +23,7 @@ class PdfService {
   Future<Uint8List> generateQuotationPdf(QuotationPdfData data) async {
     final document = pw.Document();
     final logoImage = await _loadLogo();
-    final currencyFormatter = NumberFormat.currency(
-      locale: 'es_MX',
-      symbol: r'$',
-      decimalDigits: 2,
-    );
+    final currencyFormatter = _quotationCurrencyFormatter();
 
     document.addPage(
       pw.MultiPage(
@@ -40,21 +36,82 @@ class PdfService {
           logo: logoImage,
         ),
         footer: (context) => _buildFooter(context, data.company),
-        build: (context) => [
-          _buildTitle('Cotización de sistema fotovoltaico'),
-          pw.SizedBox(height: 16),
-          _buildClientSection(data.client),
-          pw.SizedBox(height: 16),
-          _buildSystemSection(data.system),
-          pw.SizedBox(height: 16),
-          _buildCommercialSection(data, currencyFormatter),
-          pw.SizedBox(height: 16),
-          _buildNotesSection(data),
-        ],
+        build: (context) => _quotationContent(data, currencyFormatter),
       ),
     );
 
     return document.save();
+  }
+
+  /// Cotización comercial + planos estructurales fusionados en un solo PDF
+  /// (ver Fase 6.23): un único [pw.Document] con dos secciones de páginas,
+  /// en vez de generar y luego intentar unir dos archivos PDF ya
+  /// serializados.
+  Future<Uint8List> generateQuotationWithStructuralPdf({
+    required QuotationPdfData quotationData,
+    required StructureTechnicalPdfData structureData,
+  }) async {
+    final document = pw.Document();
+    final logoImage = await _loadLogo();
+    final currencyFormatter = _quotationCurrencyFormatter();
+    final font = PdfFont.helvetica(document.document);
+
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.letter,
+        margin: const pw.EdgeInsets.all(32),
+        header: (context) => _buildHeader(
+          company: quotationData.company,
+          documentLabel: 'Cotización ${quotationData.draftCode}',
+          generatedAt: quotationData.generatedAt,
+          logo: logoImage,
+        ),
+        footer: (context) => _buildFooter(context, quotationData.company),
+        build: (context) => _quotationContent(quotationData, currencyFormatter),
+      ),
+    );
+
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.letter,
+        margin: const pw.EdgeInsets.all(32),
+        header: (context) => _buildHeader(
+          company: structureData.company,
+          documentLabel: 'Estructura ${structureData.draftCode}',
+          generatedAt: structureData.generatedAt,
+          logo: logoImage,
+        ),
+        footer: (context) => _buildFooter(context, structureData.company),
+        build: (context) => _structuralContent(structureData, font),
+      ),
+    );
+
+    return document.save();
+  }
+
+  NumberFormat _quotationCurrencyFormatter() {
+    return NumberFormat.currency(
+      locale: 'es_MX',
+      symbol: r'$',
+      decimalDigits: 2,
+    );
+  }
+
+  List<pw.Widget> _quotationContent(
+    QuotationPdfData data,
+    NumberFormat currencyFormatter,
+  ) {
+    return [
+      _buildTitle('Cotización de sistema fotovoltaico'),
+      pw.SizedBox(height: 16),
+      _buildClientSection(data.client),
+      pw.SizedBox(height: 16),
+      _buildSystemSection(data.system),
+      pw.SizedBox(height: 16),
+      _buildCommercialSection(data, currencyFormatter),
+      pw.SizedBox(height: 16),
+      _buildNotesSection(data),
+    ];
   }
 
   Future<Uint8List> generateTechnicalProposalPdf(
@@ -299,121 +356,128 @@ class PdfService {
           logo: logoImage,
         ),
         footer: (context) => _buildFooter(context, data.company),
-        build: (context) => [
-          _buildTitle('Diseño técnico de estructura'),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            data.projectLabel,
-            style: const pw.TextStyle(fontSize: 10, color: _mutedColor),
-          ),
-          pw.SizedBox(height: 16),
-          _sectionContainer(
-            title: 'Resumen',
-            child: pw.TableHelper.fromTextArray(
-              border: null,
-              cellAlignment: pw.Alignment.centerLeft,
-              headerCount: 0,
-              cellPadding:
-                  const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
-              cellStyle: const pw.TextStyle(fontSize: 9.5),
-              data: [
-                ['Tipo de montaje', data.mountTypeLabel],
-                ['Fijación', data.fixingTypeLabel],
-                [
-                  'Distribución',
-                  '${data.result.structuresCount} estructura(s) · '
-                      '${data.result.panelsHorizontal} × ${data.result.panelRows} módulos',
-                ],
-                [
-                  'Área de módulos',
-                  '${data.result.widthMeters.toStringAsFixed(2)} × '
-                      '${data.result.inclinedDepthMeters.toStringAsFixed(2)} m',
-                ],
-              ],
-            ),
-          ),
-          pw.SizedBox(height: 16),
-          _sectionContainer(
-            title: 'Área de módulos (planta)',
-            child: pw.SizedBox(
-              height: 160,
-              width: double.infinity,
-              child: pw.CustomPaint(
-                size: const PdfPoint(500, 160),
-                painter: (canvas, size) => _drawAreaPanel(
-                  canvas,
-                  size,
-                  data.result,
-                  font,
-                ),
-              ),
-            ),
-          ),
-          pw.SizedBox(height: 16),
-          _sectionContainer(
-            title: 'Vista lateral',
-            child: pw.SizedBox(
-              height: 170,
-              width: double.infinity,
-              child: pw.CustomPaint(
-                size: const PdfPoint(500, 170),
-                painter: (canvas, size) => _drawSideView(
-                  canvas,
-                  size,
-                  data.result,
-                  font,
-                ),
-              ),
-            ),
-          ),
-          pw.SizedBox(height: 16),
-          _sectionContainer(
-            title: 'Vista frontal',
-            child: pw.SizedBox(
-              height: 150,
-              width: double.infinity,
-              child: pw.CustomPaint(
-                size: const PdfPoint(500, 150),
-                painter: (canvas, size) => _drawFrontView(
-                  canvas,
-                  size,
-                  data.result,
-                  font,
-                ),
-              ),
-            ),
-          ),
-          pw.SizedBox(height: 16),
-          _sectionContainer(
-            title: 'Vista trasera (rompevientos)',
-            child: pw.SizedBox(
-              height: 150,
-              width: double.infinity,
-              child: pw.CustomPaint(
-                size: const PdfPoint(500, 150),
-                painter: (canvas, size) => _drawRearView(
-                  canvas,
-                  size,
-                  data.result,
-                  font,
-                ),
-              ),
-            ),
-          ),
-          pw.SizedBox(height: 16),
-          _buildStructureMaterialsSection(data.result, data.fixingTypeLabel),
-          pw.SizedBox(height: 12),
-          pw.Text(
-            'Diagramas y cantidades preliminares. Validar en sitio, contra '
-            'normativa aplicable y criterio final de ingeniería antes de '
-            'fabricar o instalar.',
-            style: const pw.TextStyle(fontSize: 8, color: _mutedColor),
-          ),
-        ],
+        build: (context) => _structuralContent(data, font),
       ),
     );
 
     return document.save();
+  }
+
+  List<pw.Widget> _structuralContent(
+    StructureTechnicalPdfData data,
+    PdfFont font,
+  ) {
+    return [
+      _buildTitle('Diseño técnico de estructura'),
+      pw.SizedBox(height: 4),
+      pw.Text(
+        data.projectLabel,
+        style: const pw.TextStyle(fontSize: 10, color: _mutedColor),
+      ),
+      pw.SizedBox(height: 16),
+      _sectionContainer(
+        title: 'Resumen',
+        child: pw.TableHelper.fromTextArray(
+          border: null,
+          cellAlignment: pw.Alignment.centerLeft,
+          headerCount: 0,
+          cellPadding:
+              const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+          cellStyle: const pw.TextStyle(fontSize: 9.5),
+          data: [
+            ['Tipo de montaje', data.mountTypeLabel],
+            ['Fijación', data.fixingTypeLabel],
+            [
+              'Distribución',
+              '${data.result.structuresCount} estructura(s) · '
+                  '${data.result.panelsHorizontal} × ${data.result.panelRows} módulos',
+            ],
+            [
+              'Área de módulos',
+              '${data.result.widthMeters.toStringAsFixed(2)} × '
+                  '${data.result.inclinedDepthMeters.toStringAsFixed(2)} m',
+            ],
+          ],
+        ),
+      ),
+      pw.SizedBox(height: 16),
+      _sectionContainer(
+        title: 'Área de módulos (planta)',
+        child: pw.SizedBox(
+          height: 160,
+          width: double.infinity,
+          child: pw.CustomPaint(
+            size: const PdfPoint(500, 160),
+            painter: (canvas, size) => _drawAreaPanel(
+              canvas,
+              size,
+              data.result,
+              font,
+            ),
+          ),
+        ),
+      ),
+      pw.SizedBox(height: 16),
+      _sectionContainer(
+        title: 'Vista lateral',
+        child: pw.SizedBox(
+          height: 170,
+          width: double.infinity,
+          child: pw.CustomPaint(
+            size: const PdfPoint(500, 170),
+            painter: (canvas, size) => _drawSideView(
+              canvas,
+              size,
+              data.result,
+              font,
+            ),
+          ),
+        ),
+      ),
+      pw.SizedBox(height: 16),
+      _sectionContainer(
+        title: 'Vista frontal',
+        child: pw.SizedBox(
+          height: 150,
+          width: double.infinity,
+          child: pw.CustomPaint(
+            size: const PdfPoint(500, 150),
+            painter: (canvas, size) => _drawFrontView(
+              canvas,
+              size,
+              data.result,
+              font,
+            ),
+          ),
+        ),
+      ),
+      pw.SizedBox(height: 16),
+      _sectionContainer(
+        title: 'Vista trasera (rompevientos)',
+        child: pw.SizedBox(
+          height: 150,
+          width: double.infinity,
+          child: pw.CustomPaint(
+            size: const PdfPoint(500, 150),
+            painter: (canvas, size) => _drawRearView(
+              canvas,
+              size,
+              data.result,
+              font,
+            ),
+          ),
+        ),
+      ),
+      pw.SizedBox(height: 16),
+      _buildStructureMaterialsSection(data.result, data.fixingTypeLabel),
+      pw.SizedBox(height: 12),
+      pw.Text(
+        'Diagramas y cantidades preliminares. Validar en sitio, contra '
+        'normativa aplicable y criterio final de ingeniería antes de '
+        'fabricar o instalar.',
+        style: const pw.TextStyle(fontSize: 8, color: _mutedColor),
+      ),
+    ];
   }
 
   void _drawAreaPanel(
@@ -538,6 +602,21 @@ class PdfService {
         floorY - 12,
       );
     }
+
+    if (result.structuresCount > 1) {
+      final totalArrayDepthMeters =
+          result.projectedDepthMeters * result.structuresCount;
+      canvas.drawString(
+        font,
+        7,
+        'Distancia entre filas de estructuras: '
+        '${result.projectedDepthMeters.toStringAsFixed(2)} m aprox. '
+        '(${result.structuresCount} filas) · Largo total del arreglo: '
+        '${totalArrayDepthMeters.toStringAsFixed(2)} m',
+        marginLeft,
+        size.y - 12,
+      );
+    }
   }
 
   void _drawFrontView(
@@ -576,7 +655,7 @@ class PdfService {
       font,
       8,
       'Patas delanteras: $legCount · separación '
-      '${(spacing / _max(scale, 1)).toStringAsFixed(2)} m aprox.',
+      '${result.legSpacingMeters.toStringAsFixed(2)} m aprox.',
       marginLeft,
       size.y - 14,
     );
@@ -609,6 +688,7 @@ class PdfService {
     final topRight = PdfPoint(rightX, floorY + rearHeight * scale);
     final middleX = marginLeft + width / 2;
     final middleTop = PdfPoint(middleX, floorY + result.middleLegMeters * scale);
+    final middleBase = PdfPoint(middleX, floorY);
 
     canvas
       ..setStrokeColor(PdfColors.grey600)
@@ -624,11 +704,14 @@ class PdfService {
       ..drawLine(middleX, floorY, middleX, middleTop.y)
       ..strokePath();
 
+    // Rompevientos en "V" alternada: de la parte alta de una pata a la
+    // base de la siguiente, y de esa base a la parte alta de la pata
+    // posterior (ver Fase 5.21).
     canvas
       ..setStrokeColor(PdfColors.orange700)
       ..setLineWidth(1)
-      ..drawLine(topLeft.x, topLeft.y, middleTop.x, middleTop.y)
-      ..drawLine(topRight.x, topRight.y, middleTop.x, middleTop.y)
+      ..drawLine(topLeft.x, topLeft.y, middleBase.x, middleBase.y)
+      ..drawLine(middleBase.x, middleBase.y, topRight.x, topRight.y)
       ..strokePath();
 
     canvas.drawString(
@@ -638,6 +721,14 @@ class PdfService {
       '${result.windBraceLengthMeters.toStringAsFixed(2)} m',
       marginLeft,
       size.y - 14,
+    );
+    canvas.drawString(
+      font,
+      7,
+      'Patas traseras: ${result.supportPointsPerRow} · separación '
+      '${result.legSpacingMeters.toStringAsFixed(2)} m aprox.',
+      marginLeft,
+      size.y - 26,
     );
     canvas.drawString(
       font,
@@ -860,6 +951,11 @@ class PdfService {
     final commercial = data.commercial;
 
     final rows = <List<String>>[
+      if (commercial.structureMaterialsPrice > 0)
+        [
+          'Estructura y materiales',
+          currencyFormatter.format(commercial.structureMaterialsPrice),
+        ],
       ['Subtotal', currencyFormatter.format(commercial.subtotal)],
       if (commercial.discountAmount > 0)
         [
@@ -906,6 +1002,15 @@ class PdfService {
             pw.Text(
               'Esquema de pagos: ${commercial.paymentTermsNote}',
               style: const pw.TextStyle(fontSize: 9),
+            ),
+          ],
+          if (commercial.structureMaterialsHasMissingPrices) ...[
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'El monto de estructura y materiales es un estimado parcial: '
+              'algunas partidas no tenían precio disponible en el catálogo '
+              'al momento de generar esta cotización.',
+              style: const pw.TextStyle(fontSize: 8.5, color: _mutedColor),
             ),
           ],
         ],

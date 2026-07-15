@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../cotizaciones/application/quotation_draft_controller.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AppScaffold(
       title: 'Dashboard',
       child: ListView(
@@ -25,7 +27,13 @@ class DashboardScreen extends StatelessWidget {
                 _DashboardButton(
                   label: 'Nueva cotización',
                   icon: Icons.request_quote_outlined,
-                  onTap: () => context.go(AppRoutes.cotizacion),
+                  onTap: () {
+                    ref.read(activeQuotationDraftIdProvider.notifier).state =
+                        null;
+                    ref.read(quotationDraftProspectProvider.notifier).state =
+                        null;
+                    context.go(AppRoutes.cotizacion);
+                  },
                 ),
                 _DashboardButton(
                   label: 'Clientes',

@@ -61,6 +61,8 @@ class QuotationPdfCommercialSummary {
     required this.total,
     required this.validityDays,
     this.paymentTermsNote,
+    this.structureMaterialsPrice = 0,
+    this.structureMaterialsHasMissingPrices = false,
   });
 
   final String currency;
@@ -72,6 +74,13 @@ class QuotationPdfCommercialSummary {
   final double total;
   final int validityDays;
   final String? paymentTermsNote;
+
+  /// Monto de estructura/materiales ya incluido en [subtotal] (Fase 6.22).
+  final double structureMaterialsPrice;
+
+  /// `true` si al guardar la cotización había partidas de estructura sin
+  /// precio en el catálogo: el monto de estructura es un estimado parcial.
+  final bool structureMaterialsHasMissingPrices;
 
   double get balanceDue => total - advancePaymentAmount;
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../application/clients_controller.dart';
 import '../../domain/entities/client.dart';
@@ -171,10 +172,12 @@ class _ClienteFormScreenState extends ConsumerState<ClienteFormScreen> {
 
       final repository = ref.read(clientRepositoryProvider);
 
+      String createdClientId = widget.clientId ?? '';
+
       if (_isEditing) {
         await repository.update(clientId: widget.clientId!, input: input);
       } else {
-        await repository.create(input);
+        createdClientId = await repository.create(input);
       }
 
       ref.invalidate(clientsControllerProvider);
@@ -184,7 +187,14 @@ class _ClienteFormScreenState extends ConsumerState<ClienteFormScreen> {
 
       if (!mounted) return;
 
-      context.pop();
+      if (_isEditing) {
+        context.pop();
+      } else {
+        context.pushReplacement(
+          AppRoutes.clienteDatosFiscales,
+          extra: createdClientId,
+        );
+      }
     } catch (error) {
       if (!mounted) return;
 

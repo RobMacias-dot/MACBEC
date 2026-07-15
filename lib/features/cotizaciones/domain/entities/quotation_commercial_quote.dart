@@ -26,6 +26,9 @@ class QuotationCommercialQuote {
     this.paymentTermsNote,
     this.quotationPdfDocumentId,
     this.pdfGeneratedAt,
+    this.structureMaterialsCost = 0,
+    this.structureMaterialsPrice = 0,
+    this.structureMaterialsHasMissingPrices = false,
   });
 
   final String id;
@@ -50,6 +53,16 @@ class QuotationCommercialQuote {
   final double inverterUnitCost;
   final double inverterUnitPrice;
   final int inverterQuantity;
+
+  /// Costo y precio (con utilidad aplicada) de los materiales de estructura
+  /// tomados del catálogo comercial al momento de guardar esta versión
+  /// (Fase 6.22 → conectado al total oficial del cliente). Si
+  /// [structureMaterialsHasMissingPrices] es `true`, el monto es un
+  /// estimado parcial: algunas partidas del BOM no tenían precio en el
+  /// catálogo y no están incluidas.
+  final double structureMaterialsCost;
+  final double structureMaterialsPrice;
+  final bool structureMaterialsHasMissingPrices;
 
   final double subtotal;
   final double ivaAmount;
@@ -85,6 +98,9 @@ class SaveQuotationCommercialQuoteInput {
     this.panelUtilityRatePercent,
     this.inverterUtilityRatePercent,
     this.paymentTermsNote,
+    this.structureMaterialsCost = 0,
+    this.structureMaterialsPrice = 0,
+    this.structureMaterialsHasMissingPrices = false,
   });
 
   final double generalUtilityRatePercent;
@@ -95,6 +111,10 @@ class SaveQuotationCommercialQuoteInput {
   final double advancePaymentAmount;
   final String currency;
   final String? paymentTermsNote;
+
+  final double structureMaterialsCost;
+  final double structureMaterialsPrice;
+  final bool structureMaterialsHasMissingPrices;
 
   final double panelUnitCost;
   final double panelUnitPrice;

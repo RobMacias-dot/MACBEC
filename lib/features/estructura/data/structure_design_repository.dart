@@ -71,6 +71,7 @@ class StructureDesignRepository {
               panelRows: selection.panelRows,
               inclinationDegrees: selection.inclinationDegrees,
               frontLegCm: selection.frontLegCm,
+              angleMaterial: Value(selection.angleMaterial),
               createdAt: Value(now),
               updatedAt: Value(now),
             ),
@@ -90,6 +91,7 @@ class StructureDesignRepository {
         panelRows: Value(selection.panelRows),
         inclinationDegrees: Value(selection.inclinationDegrees),
         frontLegCm: Value(selection.frontLegCm),
+        angleMaterial: Value(selection.angleMaterial),
         updatedAt: Value(now),
       ),
     );
@@ -108,6 +110,7 @@ class StructureDesignRepository {
       panelRows: row.panelRows,
       inclinationDegrees: row.inclinationDegrees,
       frontLegCm: row.frontLegCm,
+      angleMaterial: row.angleMaterial,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );

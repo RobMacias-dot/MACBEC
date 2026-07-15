@@ -45,6 +45,7 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
 
   StructureMountType _mountType = StructureMountType.inclinedFlatRoof;
   StructureFixingType _fixingType = StructureFixingType.chemicalAnchor;
+  StructureAngleMaterial _angleMaterial = StructureAngleMaterial.steelPtr;
   bool _initializedFromPersisted = false;
   bool _isSaving = false;
   bool _isGeneratingPdf = false;
@@ -105,6 +106,9 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
             _mountType;
         _fixingType = _fixingTypeFromKey(persistedSelection.fixingType) ??
             _fixingType;
+        _angleMaterial =
+            _angleMaterialFromKey(persistedSelection.angleMaterial) ??
+                _angleMaterial;
         _structuresCountController.text =
             '${persistedSelection.structuresCount}';
         _panelsHorizontalController.text =
@@ -155,10 +159,16 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
                 inclinationController: _inclinationController,
                 frontLegController: _frontLegController,
                 fixingType: _fixingType,
+                angleMaterial: _angleMaterial,
                 onChanged: () => setState(() {}),
                 onFixingChanged: (value) {
                   setState(() {
                     _fixingType = value;
+                  });
+                },
+                onAngleMaterialChanged: (value) {
+                  setState(() {
+                    _angleMaterial = value;
                   });
                 },
               ),
@@ -193,6 +203,7 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
                 child: _MaterialSummary(
                   result: result,
                   fixingType: _fixingType,
+                  angleMaterial: _angleMaterial,
                 ),
               ),
               if (activeDraftId != null) ...[
@@ -305,6 +316,7 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
         panelWidthMm: contextData.panelWidthMm!,
         inclinationDegrees: inclination,
         frontLegCm: frontLeg,
+        angleMaterial: _angleMaterial,
       ),
     );
   }
@@ -334,10 +346,17 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
               inclinationDegrees:
                   _parseDouble(_inclinationController.text) ?? 0,
               frontLegCm: _parseDouble(_frontLegController.text) ?? 0,
+              angleMaterial: _angleMaterial.name,
             ),
           );
 
       ref.invalidate(structureDesignSelectionProvider(activeDraftId));
+
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.structure,
+          );
+      ref.invalidate(quotationDraftsControllerProvider);
 
       if (!mounted) return;
 
@@ -455,6 +474,16 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
     if (key == null) return null;
 
     for (final value in StructureFixingType.values) {
+      if (value.name == key) return value;
+    }
+
+    return null;
+  }
+
+  StructureAngleMaterial? _angleMaterialFromKey(String? key) {
+    if (key == null) return null;
+
+    for (final value in StructureAngleMaterial.values) {
       if (value.name == key) return value;
     }
 
@@ -589,8 +618,10 @@ class _ConfigurationForm extends StatelessWidget {
     required this.inclinationController,
     required this.frontLegController,
     required this.fixingType,
+    required this.angleMaterial,
     required this.onChanged,
     required this.onFixingChanged,
+    required this.onAngleMaterialChanged,
   });
 
   final TextEditingController structuresCountController;
@@ -599,8 +630,10 @@ class _ConfigurationForm extends StatelessWidget {
   final TextEditingController inclinationController;
   final TextEditingController frontLegController;
   final StructureFixingType fixingType;
+  final StructureAngleMaterial angleMaterial;
   final VoidCallback onChanged;
   final ValueChanged<StructureFixingType> onFixingChanged;
+  final ValueChanged<StructureAngleMaterial> onAngleMaterialChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -676,6 +709,25 @@ class _ConfigurationForm extends StatelessWidget {
           ],
           onChanged: (value) {
             if (value != null) onFixingChanged(value);
+          },
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<StructureAngleMaterial>(
+          initialValue: angleMaterial,
+          decoration: const InputDecoration(
+            labelText: 'Material de ángulo/estructura',
+            helperText: 'PTR de acero o ángulo de aluminio; ambos en tramos de 6 m.',
+            prefixIcon: Icon(Icons.architecture_outlined),
+          ),
+          items: [
+            for (final value in StructureAngleMaterial.values)
+              DropdownMenuItem(
+                value: value,
+                child: Text(value.label),
+              ),
+          ],
+          onChanged: (value) {
+            if (value != null) onAngleMaterialChanged(value);
           },
         ),
       ],
@@ -825,10 +877,12 @@ class _MaterialSummary extends StatelessWidget {
   const _MaterialSummary({
     required this.result,
     required this.fixingType,
+    required this.angleMaterial,
   });
 
   final InclinedFlatRoofResult result;
   final StructureFixingType fixingType;
+  final StructureAngleMaterial angleMaterial;
 
   @override
   Widget build(BuildContext context) {
@@ -887,10 +941,17 @@ class _MaterialSummary extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _MaterialTile(
-          label: 'Material de ángulo',
-          quantity: '${result.angleSixMeterSections} tramos de 6 m',
+          label: 'Material de ángulo (${angleMaterial.label})',
+          quantity: '${result.anglePlan.sixMeterSections} tramos de 6 m',
+          detail: '${result.angleMaterialMeters.toStringAsFixed(2)} m '
+              'requeridos (patas + largueros + rompevientos)',
+        ),
+        const SizedBox(height: 10),
+        _MaterialTile(
+          label: 'Desperdicio estimado de ángulo',
+          quantity: '${result.anglePlan.wasteMeters.toStringAsFixed(2)} m',
           detail:
-              '${result.angleMaterialMeters.toStringAsFixed(2)} m calculados',
+              '${result.anglePlan.availableMeters.toStringAsFixed(2)} m comprados',
         ),
         const SizedBox(height: 10),
         _MaterialTile(
@@ -898,6 +959,14 @@ class _MaterialSummary extends StatelessWidget {
           quantity: '${result.fixingPiecesPerTypeCount} piezas',
           detail: '2 por pata · pendiente de precio y especificación final',
         ),
+        if (fixingType == StructureFixingType.chemicalAnchor) ...[
+          const SizedBox(height: 10),
+          _MaterialTile(
+            label: 'Cartuchos de anclaje químico',
+            quantity: '${result.chemicalAnchorCartridgeCount} cartuchos',
+            detail: 'Fester 890 · 20 tuercas por cartucho',
+          ),
+        ],
         const SizedBox(height: 10),
         _MaterialTile(
           label: 'Tuercas',

@@ -12,6 +12,8 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../documentos_pdf/data/pdf_service.dart';
 import '../../../documentos_pdf/domain/entities/quotation_pdf_data.dart';
+import '../../../documentos_pdf/domain/entities/structure_technical_pdf_data.dart';
+import '../../../estructura/domain/structure_design_rules.dart';
 import '../../application/quotation_draft_controller.dart';
 import '../../application/quotation_summary_provider.dart';
 import '../../data/quotation_commercial_repository.dart';
@@ -276,15 +278,72 @@ class _CotizacionClientePreviewScreenState
         total: quote.total,
         validityDays: summary.commercialSettings.defaultQuotationValidityDays,
         paymentTermsNote: quote.paymentTermsNote,
+        structureMaterialsPrice: quote.structureMaterialsPrice,
+        structureMaterialsHasMissingPrices:
+            quote.structureMaterialsHasMissingPrices,
       ),
       warrantyNote: summary.commercialSettings.warrantyNote,
       legalNote: summary.commercialSettings.quotationLegalNote,
     );
   }
 
+  /// Construye los datos del PDF de planos estructurales a partir del
+  /// mismo [QuotationSummary] ya cargado, para fusionarlo con la
+  /// cotización en un solo documento (Fase 6.23). Devuelve `null` si el
+  /// borrador todavía no tiene un diseño de estructura guardado.
+  StructureTechnicalPdfData? _buildStructurePdfData(
+    QuotationSummary summary,
+    String draftCode,
+  ) {
+    final structureResult = summary.structureResult;
+    final structureSelection = summary.structureSelection;
+
+    if (structureResult == null || structureSelection == null) return null;
+
+    return StructureTechnicalPdfData(
+      draftCode: draftCode,
+      generatedAt: DateTime.now(),
+      company: QuotationPdfCompanyInfo(
+        companyName: summary.companyProfile.companyName.trim().isEmpty
+            ? AppConstants.companyName
+            : summary.companyProfile.companyName,
+        phone: summary.companyProfile.phone,
+        email: summary.companyProfile.email,
+        address: summary.companyProfile.address,
+      ),
+      projectLabel: summary.draft.prospectName,
+      mountTypeLabel: _mountTypeLabel(structureSelection.mountType),
+      fixingTypeLabel: _fixingTypeLabel(structureSelection.fixingType),
+      panelLengthMm: summary.panel.lengthMm ?? 0,
+      panelWidthMm: summary.panel.widthMm ?? 0,
+      result: structureResult,
+    );
+  }
+
+  String _mountTypeLabel(String key) {
+    for (final value in StructureMountType.values) {
+      if (value.name == key) return value.label;
+    }
+    return key;
+  }
+
+  String _fixingTypeLabel(String key) {
+    for (final value in StructureFixingType.values) {
+      if (value.name == key) return value.label;
+    }
+    return key;
+  }
+
   Future<void> _previewPdf({required QuotationSummary summary}) async {
     final data = await _buildPdfData(summary);
-    final bytes = await ref.read(pdfServiceProvider).generateQuotationPdf(data);
+    final structureData = _buildStructurePdfData(summary, data.draftCode);
+
+    final bytes = structureData == null
+        ? await ref.read(pdfServiceProvider).generateQuotationPdf(data)
+        : await ref.read(pdfServiceProvider).generateQuotationWithStructuralPdf(
+              quotationData: data,
+              structureData: structureData,
+            );
 
     await Printing.layoutPdf(onLayout: (_) async => bytes);
   }
@@ -299,8 +358,16 @@ class _CotizacionClientePreviewScreenState
 
     try {
       final data = await _buildPdfData(summary);
-      final bytes =
-          await ref.read(pdfServiceProvider).generateQuotationPdf(data);
+      final structureData = _buildStructurePdfData(summary, data.draftCode);
+
+      final bytes = structureData == null
+          ? await ref.read(pdfServiceProvider).generateQuotationPdf(data)
+          : await ref
+              .read(pdfServiceProvider)
+              .generateQuotationWithStructuralPdf(
+                quotationData: data,
+                structureData: structureData,
+              );
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'cotizacion_${data.draftCode}_$timestamp.pdf';

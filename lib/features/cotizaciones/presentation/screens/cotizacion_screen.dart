@@ -174,6 +174,9 @@ class CotizacionScreen extends ConsumerWidget {
   }
 
   String _nextRouteForDraft(QuotationDraft draft) {
+    final stepRoute = _routeForCompletedStep(draft.lastCompletedStep);
+    if (stepRoute != null) return stepRoute;
+
     if (!draft.hasCfeReceipt ||
         draft.status == QuotationDraftStatus.receiptPending) {
       return AppRoutes.reciboCfe;
@@ -195,6 +198,33 @@ class CotizacionScreen extends ConsumerWidget {
       case QuotationDraftStatus.receiptReceived:
       default:
         return AppRoutes.analisisConsumo;
+    }
+  }
+
+  /// Traduce el último módulo completado (persistido en el borrador) a la
+  /// pantalla donde debe reanudarse el flujo. Devuelve `null` para
+  /// borradores antiguos sin este dato, dejando la inferencia por status.
+  String? _routeForCompletedStep(String? lastCompletedStep) {
+    switch (lastCompletedStep) {
+      case QuotationDraftStep.prospect:
+        return AppRoutes.reciboCfe;
+      case QuotationDraftStep.cfeReceipt:
+        return AppRoutes.reciboCfeRevision;
+      case QuotationDraftStep.cfeReview:
+        return AppRoutes.analisisConsumo;
+      case QuotationDraftStep.energyAnalysis:
+        return AppRoutes.seleccionTecnica;
+      case QuotationDraftStep.technicalSelection:
+        return AppRoutes.dimensionamientoElectrico;
+      case QuotationDraftStep.electricalDimensioning:
+        return AppRoutes.estructura;
+      case QuotationDraftStep.structure:
+        return AppRoutes.cotizacionInterna;
+      case QuotationDraftStep.commercialQuote:
+      case QuotationDraftStep.clientPreview:
+        return AppRoutes.cotizacionClientePreview;
+      default:
+        return null;
     }
   }
 }

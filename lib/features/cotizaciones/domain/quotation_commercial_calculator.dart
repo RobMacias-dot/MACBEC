@@ -3,13 +3,13 @@ import '../../catalogo_tecnico/domain/entities/solar_panel.dart';
 import 'entities/quotation_commercial_quote.dart';
 import 'quotation_rules.dart';
 
-/// Calcula el desglose comercial de una cotización a partir del panel y el
-/// inversor seleccionados. Solo paneles e inversor tienen costo de compra
-/// persistido hoy; estructura, cableado y mano de obra se incorporarán en
-/// una fase posterior cuando esos catálogos tengan datos comerciales.
+/// Calcula el desglose comercial de una cotización a partir del panel, el
+/// inversor y los materiales de estructura del catálogo comercial.
 ///
-/// La utilidad general aplica a ambas partidas salvo que se indique una
-/// utilidad específica por partida (modo avanzado).
+/// La utilidad general aplica a todas las partidas salvo que se indique una
+/// utilidad específica de panel/inversor (modo avanzado). Los materiales de
+/// estructura siempre usan la utilidad general: se pasa su costo ya sumado
+/// (solo partidas con precio en catálogo; ver [StructureMaterialPricer]).
 class QuotationCommercialCalculator {
   const QuotationCommercialCalculator._();
 
@@ -26,11 +26,14 @@ class QuotationCommercialCalculator {
     double? panelUtilityRatePercent,
     double? inverterUtilityRatePercent,
     String? paymentTermsNote,
+    double structureMaterialsCost = 0,
+    bool structureMaterialsHasMissingPrices = false,
   }) {
     final panelUtilityRate =
         (panelUtilityRatePercent ?? generalUtilityRatePercent) / 100;
     final inverterUtilityRate =
         (inverterUtilityRatePercent ?? generalUtilityRatePercent) / 100;
+    final generalUtilityRate = generalUtilityRatePercent / 100;
     final ivaRate = ivaRatePercent / 100;
 
     final panelUnitCost = panel.purchasePrice ?? 0;
@@ -45,8 +48,16 @@ class QuotationCommercialCalculator {
       inverterUtilityRate,
     );
 
+    final structureMaterialsPrice = structureMaterialsCost > 0
+        ? QuotationRules.applyUtility(
+            structureMaterialsCost,
+            generalUtilityRate,
+          )
+        : 0.0;
+
     final subtotal = (panelUnitPrice * panelQuantity) +
-        (inverterUnitPrice * inverterQuantity);
+        (inverterUnitPrice * inverterQuantity) +
+        structureMaterialsPrice;
 
     final safeDiscount = discountAmount.clamp(0, subtotal).toDouble();
 
@@ -76,6 +87,9 @@ class QuotationCommercialCalculator {
       inverterUnitCost: inverterUnitCost,
       inverterUnitPrice: inverterUnitPrice,
       inverterQuantity: inverterQuantity,
+      structureMaterialsCost: structureMaterialsCost,
+      structureMaterialsPrice: structureMaterialsPrice,
+      structureMaterialsHasMissingPrices: structureMaterialsHasMissingPrices,
       subtotal: subtotal,
       ivaAmount: ivaAmount,
       total: total,

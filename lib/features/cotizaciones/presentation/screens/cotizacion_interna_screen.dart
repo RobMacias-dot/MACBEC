@@ -7,10 +7,15 @@ import '../../../../shared/formatters/currency_formatter.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/section_card.dart';
+import '../../../estructura/domain/structure_design_rules.dart';
+import '../../../estructura/domain/structure_material_pricer.dart';
+import '../../../materiales_catalogo/data/material_catalog_repository.dart';
+import '../../../materiales_catalogo/domain/entities/material_catalog_product.dart';
 import '../../application/quotation_draft_controller.dart';
 import '../../application/quotation_summary_provider.dart';
 import '../../data/quotation_commercial_repository.dart';
 import '../../domain/entities/quotation_commercial_quote.dart';
+import '../../domain/entities/quotation_draft.dart';
 import '../../domain/quotation_commercial_calculator.dart';
 
 class CotizacionInternaScreen extends ConsumerStatefulWidget {
@@ -88,6 +93,16 @@ class _CotizacionInternaScreenState
           _ensureInitialized(summary);
 
           final quote = summary.commercialQuote;
+          final catalog =
+              ref.watch(materialCatalogProductsProvider).valueOrNull ??
+                  const [];
+          final structureLines = _computeStructureLines(summary, catalog);
+          final structureMaterialsCost = structureLines.fold<double>(
+            0,
+            (sum, line) => sum + (line.lineTotalMxn ?? 0),
+          );
+          final structureHasMissingPrices =
+              structureLines.any((line) => !line.hasPrice);
 
           return ListView(
             children: [
@@ -137,8 +152,26 @@ class _CotizacionInternaScreenState
               SectionCard(
                 title: 'Desglose interno',
                 subtitle: 'Costos, utilidad y margen (no visibles al cliente).',
-                child: _buildBreakdown(summary),
+                child: _buildBreakdown(
+                  summary,
+                  structureMaterialsCost: structureMaterialsCost,
+                  structureMaterialsHasMissingPrices:
+                      structureHasMissingPrices,
+                ),
               ),
+              if (structureLines.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: 'Materiales de estructura (catálogo)',
+                  subtitle: structureHasMissingPrices
+                      ? 'Ya se suma al total del cliente. Hay partidas sin precio '
+                          '("-"): el total es un estimado parcial hasta que '
+                          'completes el catálogo.'
+                      : 'Ya se suma al total del cliente, con la utilidad general '
+                          'aplicada igual que panel e inversor.',
+                  child: _StructureMaterialsPricing(lines: structureLines),
+                ),
+              ],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -148,6 +181,9 @@ class _CotizacionInternaScreenState
                       : () => _saveQuote(
                             activeDraftId: activeDraftId,
                             summary: summary,
+                            structureMaterialsCost: structureMaterialsCost,
+                            structureMaterialsHasMissingPrices:
+                                structureHasMissingPrices,
                           ),
                   icon: _isSaving
                       ? const SizedBox(
@@ -236,8 +272,16 @@ class _CotizacionInternaScreenState
         quote?.inverterUtilityRatePercent != null;
   }
 
-  Widget _buildBreakdown(QuotationSummary summary) {
-    final input = _calculate(summary);
+  Widget _buildBreakdown(
+    QuotationSummary summary, {
+    required double structureMaterialsCost,
+    required bool structureMaterialsHasMissingPrices,
+  }) {
+    final input = _calculate(
+      summary,
+      structureMaterialsCost: structureMaterialsCost,
+      structureMaterialsHasMissingPrices: structureMaterialsHasMissingPrices,
+    );
 
     return Column(
       children: [
@@ -255,6 +299,13 @@ class _CotizacionInternaScreenState
             input.inverterUnitPrice * input.inverterQuantity,
           ),
         ),
+        if (input.structureMaterialsPrice > 0)
+          _BreakdownRow(
+            label: 'Estructura y materiales '
+                '(${_currencyFormatter.format(input.structureMaterialsCost)} costo)'
+                '${input.structureMaterialsHasMissingPrices ? ' — parcial' : ''}',
+            value: _currencyFormatter.format(input.structureMaterialsPrice),
+          ),
         const Divider(),
         _BreakdownRow(
           label: 'Subtotal',
@@ -285,7 +336,11 @@ class _CotizacionInternaScreenState
     );
   }
 
-  SaveQuotationCommercialQuoteInput _calculate(QuotationSummary summary) {
+  SaveQuotationCommercialQuoteInput _calculate(
+    QuotationSummary summary, {
+    required double structureMaterialsCost,
+    required bool structureMaterialsHasMissingPrices,
+  }) {
     return QuotationCommercialCalculator.calculate(
       panel: summary.panel,
       panelQuantity: summary.pvCalculation.requiredPanels,
@@ -305,7 +360,50 @@ class _CotizacionInternaScreenState
       advancePaymentAmount: _parseDouble(_advanceController.text) ?? 0,
       currency: summary.commercialSettings.currency,
       paymentTermsNote: _paymentTermsController.text,
+      structureMaterialsCost: structureMaterialsCost,
+      structureMaterialsHasMissingPrices: structureMaterialsHasMissingPrices,
     );
+  }
+
+  /// Reconstruye las líneas de materiales de estructura con precio de
+  /// catálogo a partir del resultado ya calculado en [summary] (Fase 6.22
+  /// conectado al total oficial del cliente).
+  List<PricedStructureLine> _computeStructureLines(
+    QuotationSummary summary,
+    List<MaterialCatalogProduct> catalog,
+  ) {
+    final result = summary.structureResult;
+    final selection = summary.structureSelection;
+
+    if (result == null || selection == null) return const [];
+
+    final angleMaterial =
+        _angleMaterialFromKey(selection.angleMaterial) ??
+            StructureAngleMaterial.steelPtr;
+    final fixingType =
+        _fixingTypeFromKey(selection.fixingType) ??
+            StructureFixingType.chemicalAnchor;
+
+    return StructureMaterialPricer.price(
+      result: result,
+      angleMaterial: angleMaterial,
+      fixingType: fixingType,
+      catalog: catalog,
+    );
+  }
+
+  StructureAngleMaterial? _angleMaterialFromKey(String key) {
+    for (final value in StructureAngleMaterial.values) {
+      if (value.name == key) return value;
+    }
+    return null;
+  }
+
+  StructureFixingType? _fixingTypeFromKey(String key) {
+    for (final value in StructureFixingType.values) {
+      if (value.name == key) return value;
+    }
+    return null;
   }
 
   Widget _buildErrorState(
@@ -353,17 +451,28 @@ class _CotizacionInternaScreenState
   Future<void> _saveQuote({
     required String activeDraftId,
     required QuotationSummary summary,
+    required double structureMaterialsCost,
+    required bool structureMaterialsHasMissingPrices,
   }) async {
     setState(() {
       _isSaving = true;
     });
 
     try {
-      final input = _calculate(summary);
+      final input = _calculate(
+        summary,
+        structureMaterialsCost: structureMaterialsCost,
+        structureMaterialsHasMissingPrices: structureMaterialsHasMissingPrices,
+      );
 
       await ref.read(quotationCommercialRepositoryProvider).createQuoteVersion(
             quotationDraftId: activeDraftId,
             quote: input,
+          );
+
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.commercialQuote,
           );
 
       ref.invalidate(quotationCommercialQuoteProvider(activeDraftId));
@@ -695,6 +804,96 @@ class _BreakdownRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StructureMaterialsPricing extends StatelessWidget {
+  const _StructureMaterialsPricing({required this.lines});
+
+  final List<PricedStructureLine> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final currencyFormatter = CurrencyFormatter();
+
+    final includedTotal = lines.fold<double>(
+      0,
+      (sum, line) => sum + (line.lineTotalMxn ?? 0),
+    );
+    final hasMissingPrices = lines.any((line) => !line.hasPrice);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in lines) ...[
+          _StructureMaterialLineRow(
+            line: line,
+            currencyFormatter: currencyFormatter,
+          ),
+          const SizedBox(height: 8),
+        ],
+        const Divider(),
+        Text(
+          'Incluido en el total del cliente: '
+          '${currencyFormatter.format(includedTotal)}',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        if (hasMissingPrices) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Hay líneas sin precio ("-"): no están incluidas en el total. '
+            'Revisa el catálogo o captura el precio manualmente.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _StructureMaterialLineRow extends StatelessWidget {
+  const _StructureMaterialLineRow({
+    required this.line,
+    required this.currencyFormatter,
+  });
+
+  final PricedStructureLine line;
+  final CurrencyFormatter currencyFormatter;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(line.label, style: theme.textTheme.bodyMedium),
+              Text(
+                line.quantityLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          line.hasPrice
+              ? currencyFormatter.format(line.lineTotalMxn!)
+              : '-',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: line.hasPrice ? null : theme.colorScheme.error,
+          ),
+        ),
+      ],
     );
   }
 }

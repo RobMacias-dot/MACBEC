@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../shared/widgets/address_autocomplete_field.dart';
+import '../../../../shared/widgets/document_preview.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/data/quotation_draft_repository.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
+import '../../../expediente/data/documents_repository.dart';
 import '../../application/ocr_service.dart';
 
 class ReciboCfeRevisionScreen extends ConsumerStatefulWidget {
@@ -112,6 +117,16 @@ class _ReciboCfeRevisionScreenState
                 child: _DraftSummary(draft: draft),
               ),
               const SizedBox(height: 16),
+              if (draft.cfeReceiptDocumentId != null)
+                SectionCard(
+                  title: 'Recibo CFE adjunto',
+                  subtitle: 'Vista previa del archivo guardado.',
+                  child: _ReceiptDocumentPreview(
+                    documentId: draft.cfeReceiptDocumentId!,
+                  ),
+                ),
+              if (draft.cfeReceiptDocumentId != null)
+                const SizedBox(height: 16),
               SectionCard(
                 title: 'Datos del recibo CFE',
                 subtitle: hasSavedReview && !_isEditing
@@ -158,6 +173,14 @@ class _ReciboCfeRevisionScreenState
                             });
                           },
                           onContinue: () {
+                            unawaited(
+                              ref
+                                  .read(quotationDraftRepositoryProvider)
+                                  .updateLastCompletedStep(
+                                    draftId: activeDraftId,
+                                    step: QuotationDraftStep.cfeReview,
+                                  ),
+                            );
                             context.push(AppRoutes.analisisConsumo);
                           },
                         ),
@@ -179,18 +202,14 @@ class _ReciboCfeRevisionScreenState
                         ),
                       ),
                       const SizedBox(height: 14),
-                      TextFormField(
-                        enabled: fieldsEnabled,
+                      AddressAutocompleteField(
                         controller: _serviceAddressController,
-                        textInputAction: TextInputAction.next,
-                        minLines: 2,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Dirección del servicio',
-                          helperText:
-                              'Dirección donde está contratado el servicio eléctrico.',
-                          prefixIcon: Icon(Icons.location_on_outlined),
-                        ),
+                        enabled: fieldsEnabled,
+                        labelText: 'Dirección del servicio',
+                        helperText:
+                            'Dirección donde está contratado el servicio eléctrico. '
+                            'Se sugiere la del prospecto/cliente; ajústala si el '
+                            'titular del recibo CFE vive en otro domicilio.',
                         validator: (value) => _requiredTextValidator(
                           value,
                           'Captura la dirección del servicio.',
@@ -336,6 +355,14 @@ class _ReciboCfeRevisionScreenState
                               width: double.infinity,
                               child: FilledButton.icon(
                                 onPressed: () {
+                                  unawaited(
+                                    ref
+                                        .read(quotationDraftRepositoryProvider)
+                                        .updateLastCompletedStep(
+                                          draftId: activeDraftId,
+                                          step: QuotationDraftStep.cfeReview,
+                                        ),
+                                  );
                                   context.push(AppRoutes.analisisConsumo);
                                 },
                                 icon: const Icon(Icons.arrow_forward_outlined),
@@ -389,6 +416,10 @@ class _ReciboCfeRevisionScreenState
       final suggestion = ref.read(cfeOcrSuggestionProvider);
 
       if (suggestion != null) {
+        if (_holderNameController.text.isEmpty &&
+            suggestion.holderName != null) {
+          _holderNameController.text = suggestion.holderName!;
+        }
         if (_serviceAddressController.text.isEmpty &&
             suggestion.serviceAddress != null) {
           _serviceAddressController.text = suggestion.serviceAddress!;
@@ -415,6 +446,13 @@ class _ReciboCfeRevisionScreenState
         }
 
         _usedOcrSuggestion = true;
+      }
+
+      // La dirección del prospecto/cliente es la fuente de verdad por
+      // defecto; el titular del recibo CFE puede ser distinto (ver doc
+      // funcional §9.2), así que solo se usa como sugerencia editable.
+      if (_serviceAddressController.text.isEmpty && draft.hasAddress) {
+        _serviceAddressController.text = draft.address!.trim();
       }
     }
 
@@ -455,6 +493,11 @@ class _ReciboCfeRevisionScreenState
               currentPeriodKwh: currentPeriodKwh,
               totalToPay: totalToPay,
             ),
+          );
+
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.cfeReview,
           );
 
       ref.invalidate(quotationDraftsControllerProvider);
@@ -545,6 +588,35 @@ class _ReciboCfeRevisionScreenState
     }
 
     return value.toStringAsFixed(2);
+  }
+}
+
+class _ReceiptDocumentPreview extends ConsumerWidget {
+  const _ReceiptDocumentPreview({required this.documentId});
+
+  final String documentId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final documentAsync = ref.watch(documentByIdProvider(documentId));
+
+    return documentAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stackTrace) => Text('No se pudo cargar el recibo: $error'),
+      data: (document) {
+        if (document == null) {
+          return const Text('El recibo adjunto ya no está disponible.');
+        }
+
+        return DocumentPreview(
+          localPath: document.localPath,
+          mimeType: document.mimeType,
+        );
+      },
+    );
   }
 }
 

@@ -10,6 +10,9 @@ import 'package:xml/xml.dart';
 
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../materiales_catalogo/data/material_catalog_repository.dart';
+import '../../../materiales_catalogo/domain/entities/material_catalog_product.dart'
+    as material_entity;
 import '../../application/inverter_catalog_controller.dart';
 import '../../application/panel_catalog_controller.dart';
 import '../../domain/entities/solar_inverter.dart';
@@ -27,6 +30,31 @@ String _normalizeCatalogCategory(String value) {
 
   if (normalized.isEmpty) return 'SIN_CATEGORIA';
 
+  // Categorías reales confirmadas contra el Excel estándar de MacBec
+  // (Catalogo_Productos, 161 productos): ACCESORIO, CABLEADO, ESTRUCTURA,
+  // GABINETE, INVERSOR, PANEL_SOLAR, PROTECCION_CA, PROTECCION_CD, TUBERIA.
+  // Se comparan primero de forma exacta para no depender de que el
+  // heurístico de palabras clave adivine bien.
+  const knownExactCategories = {
+    'ACCESORIO',
+    'CABLEADO',
+    'ESTRUCTURA',
+    'GABINETE',
+    'PROTECCION_CA',
+    'PROTECCIÓN_CA',
+    'PROTECCION_CD',
+    'PROTECCIÓN_CD',
+    'TUBERIA',
+    'TUBERÍA',
+  };
+
+  if (knownExactCategories.contains(normalized)) {
+    if (normalized == 'PROTECCIÓN_CA') return 'PROTECCION_CA';
+    if (normalized == 'PROTECCIÓN_CD') return 'PROTECCION_CD';
+    if (normalized == 'TUBERÍA') return 'TUBERIA';
+    return normalized;
+  }
+
   if (normalized == 'PANEL_SOLAR' ||
       normalized.contains('PANEL') ||
       normalized.contains('MFV') ||
@@ -42,8 +70,9 @@ String _normalizeCatalogCategory(String value) {
   if (normalized == 'CABLE_PRODUCTO' ||
       normalized.contains('CABLE PRODUCTO') ||
       normalized.contains('CABLE COMERCIAL') ||
-      normalized.contains('CONDUCTOR PRODUCTO')) {
-    return 'CABLE_PRODUCTO';
+      normalized.contains('CONDUCTOR PRODUCTO') ||
+      normalized.contains('CABLEADO')) {
+    return 'CABLEADO';
   }
 
   if (normalized == 'TUBERIA_PRODUCTO' ||
@@ -51,7 +80,7 @@ String _normalizeCatalogCategory(String value) {
       normalized.contains('TUBERIA PRODUCTO') ||
       normalized.contains('TUBERÍA PRODUCTO') ||
       normalized.contains('CONDUIT PRODUCTO')) {
-    return 'TUBERIA_PRODUCTO';
+    return 'TUBERIA';
   }
 
   if (normalized == 'REFERENCIA_CABLE_AMPACIDAD' ||
@@ -134,10 +163,20 @@ String _catalogCategoryLabel(String category) {
       return 'Paneles solares';
     case 'INVERSOR':
       return 'Inversores';
+    case 'CABLEADO':
     case 'CABLE_PRODUCTO':
-      return 'Cable comercial';
+      return 'Cableado';
+    case 'TUBERIA':
     case 'TUBERIA_PRODUCTO':
-      return 'Tubería comercial';
+      return 'Tubería';
+    case 'ACCESORIO':
+      return 'Accesorios';
+    case 'GABINETE':
+      return 'Gabinetes';
+    case 'PROTECCION_CA':
+      return 'Protección CA';
+    case 'PROTECCION_CD':
+      return 'Protección CD';
     case 'PROTECCION_FUSIBLE':
       return 'Fusibles';
     case 'PROTECCION_ITM':
@@ -167,8 +206,14 @@ _CatalogCategoryRole _catalogCategoryRole(String category) {
     case 'INVERSOR':
       return _CatalogCategoryRole.importsNow;
 
+    case 'CABLEADO':
     case 'CABLE_PRODUCTO':
+    case 'TUBERIA':
     case 'TUBERIA_PRODUCTO':
+    case 'ACCESORIO':
+    case 'GABINETE':
+    case 'PROTECCION_CA':
+    case 'PROTECCION_CD':
     case 'PROTECCION_FUSIBLE':
     case 'PROTECCION_ITM':
     case 'MATERIAL_ELECTRICO':
@@ -184,10 +229,6 @@ _CatalogCategoryRole _catalogCategoryRole(String category) {
     default:
       return _CatalogCategoryRole.unknown;
   }
-}
-
-bool _isImportEnabledForCategory(String category) {
-  return _catalogCategoryRole(category) == _CatalogCategoryRole.importsNow;
 }
 
 bool _isTechnicalReferenceCategory(String category) {
@@ -253,13 +294,19 @@ class _CatalogoImportacionScreenState
                 const _ImportInfoRow(
                   icon: Icons.table_chart_outlined,
                   text:
-                      'Por ahora se importan paneles solares e inversores. Cables y tuberías técnicas se mantienen como referencias internas; los precios comerciales se actualizarán después desde Excel de proveedores.',
+                      'Se importan paneles solares, inversores y materiales comerciales '
+                      '(estructura, protecciones, material eléctrico, tubería/cable y mano '
+                      'de obra). Cables y tuberías técnicas de referencia se mantienen como '
+                      'tablas internas de cálculo, no como productos de precio.',
                 ),
                 const SizedBox(height: 10),
                 const _ImportInfoRow(
                   icon: Icons.verified_outlined,
                   text:
-                      'Paneles e inversores se actualizan por marca + modelo. Las demás categorías se detectan, pero no se importan hasta tener su módulo confiable.',
+                      'Paneles e inversores se actualizan por marca + modelo; los materiales '
+                      'comerciales por categoría + subcategoría + marca + modelo. Un producto '
+                      'sin precio, inactivo o pendiente de revisión se importa igual, pero se '
+                      'muestra como "-" en vez de 0 al cotizar.',
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -304,17 +351,18 @@ class _CatalogoImportacionScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (_preview!.panelCandidates.isEmpty &&
-                      _preview!.inverterCandidates.isEmpty)
+                      _preview!.inverterCandidates.isEmpty &&
+                      _preview!.materialCandidates.isEmpty)
                     const _ImportInfoRow(
                       icon: Icons.info_outline,
                       text:
-                          'No se encontraron paneles solares ni inversores válidos para importar.',
+                          'No se encontraron productos válidos para importar.',
                     )
                   else ...[
                     _ImportInfoRow(
                       icon: Icons.inventory_2_outlined,
                       text:
-                          'Se importarán ${_preview!.panelCandidates.length} paneles solares y ${_preview!.inverterCandidates.length} inversores. Las demás categorías solo quedarán detectadas para mantener el catálogo confiable.',
+                          'Se importarán ${_preview!.panelCandidates.length} paneles solares, ${_preview!.inverterCandidates.length} inversores y ${_preview!.materialCandidates.length} materiales comerciales (estructura, protecciones, eléctrico, tubería/cable, mano de obra).',
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
@@ -333,7 +381,7 @@ class _CatalogoImportacionScreenState
                         label: Text(
                           _isImporting
                               ? 'Importando catálogo...'
-                              : 'Importar paneles e inversores',
+                              : 'Importar catálogo completo',
                         ),
                       ),
                     ),
@@ -723,6 +771,7 @@ class _CatalogoImportacionScreenState
     final categoryCounts = <String, int>{};
     final panelCandidates = <_PanelImportCandidate>[];
     final inverterCandidates = <_InverterImportCandidate>[];
+    final materialCandidates = <_MaterialImportCandidate>[];
     final warnings = <String>[];
 
     for (int rowIndex = 1; rowIndex < rows.length; rowIndex++) {
@@ -737,10 +786,44 @@ class _CatalogoImportacionScreenState
       categoryCounts[normalizedCategory] =
           (categoryCounts[normalizedCategory] ?? 0) + 1;
 
-      if (!_isImportEnabledForCategory(normalizedCategory)) {
+      if (_isTechnicalReferenceCategory(normalizedCategory) ||
+          _catalogCategoryRole(normalizedCategory) ==
+              _CatalogCategoryRole.unknown) {
         if (categoryCounts[normalizedCategory] == 1) {
           warnings.add(
             '${_catalogCategoryLabel(normalizedCategory)} detectado como "${_catalogCategoryStatusText(normalizedCategory)}". No está disponible para importación.',
+          );
+        }
+
+        continue;
+      }
+
+      if (_catalogCategoryRole(normalizedCategory) ==
+          _CatalogCategoryRole.commercialPending) {
+        final materialInput = _buildMaterialCandidate(
+          row,
+          headers,
+          normalizedCategory,
+        );
+
+        if (materialInput == null) {
+          warnings.add(
+            'Fila ${rowIndex + 1}: ${_catalogCategoryLabel(normalizedCategory)} omitido por falta de marca, modelo, subcategoría o descripción.',
+          );
+          continue;
+        }
+
+        materialCandidates.add(
+          _MaterialImportCandidate(
+            rowNumber: rowIndex + 1,
+            input: materialInput,
+          ),
+        );
+
+        if (materialInput.precioMxn == null &&
+            materialInput.precioCompra == null) {
+          warnings.add(
+            'Fila ${rowIndex + 1}: ${materialInput.marca ?? materialInput.subcategoria ?? _catalogCategoryLabel(normalizedCategory)} se importará sin precio ("-").',
           );
         }
 
@@ -911,7 +994,53 @@ class _CatalogoImportacionScreenState
       categoryCounts: categoryCounts,
       panelCandidates: panelCandidates,
       inverterCandidates: inverterCandidates,
+      materialCandidates: materialCandidates,
       warnings: warnings,
+    );
+  }
+
+  /// Construye un producto genérico del catálogo comercial (estructura,
+  /// protecciones, material eléctrico, tubería/cable comercial o mano de
+  /// obra) a partir de una fila ya clasificada como "comercial pendiente".
+  /// Ver Fase 6.22: si falta precio o el producto está inactivo/pendiente
+  /// de revisión, se importa igual pero sin precio utilizable (mostrará
+  /// "-" en vez de 0 al cotizar).
+  material_entity.SaveMaterialCatalogProductInput? _buildMaterialCandidate(
+    List<String?> row,
+    Map<String, int> headers,
+    String normalizedCategory,
+  ) {
+    final subcategoria = _getString(row, headers, 'subcategoria');
+    final marca = _getString(row, headers, 'marca');
+    final modelo = _getString(row, headers, 'modelo');
+    final descripcion = _getString(row, headers, 'descripcion');
+
+    final hasIdentity = (marca != null && marca.trim().isNotEmpty) ||
+        (modelo != null && modelo.trim().isNotEmpty) ||
+        (descripcion != null && descripcion.trim().isNotEmpty) ||
+        (subcategoria != null && subcategoria.trim().isNotEmpty);
+
+    if (!hasIdentity) return null;
+
+    return material_entity.SaveMaterialCatalogProductInput(
+      codigoInterno: _getString(row, headers, 'codigo_interno'),
+      categoriaApp: normalizedCategory,
+      subcategoria: subcategoria,
+      marca: marca,
+      modelo: modelo,
+      descripcion: descripcion,
+      unidadCompra: _getString(row, headers, 'unidad_compra'),
+      moneda: _getString(row, headers, 'moneda') ?? 'MXN',
+      precioCompra: _getDouble(row, headers, 'precio_compra'),
+      precioMxn: _getDouble(row, headers, 'precio_mxn'),
+      activo: _getBool(row, headers, 'activo') ?? true,
+      revisarPrecio: _getBool(row, headers, 'revisar_precio') ?? false,
+      estadoParaCalculo: _getString(row, headers, 'estado_para_calculo'),
+      longitudNominalM: _getDouble(row, headers, 'longitud_nominal_m'),
+      longitudUtilCalculoM:
+          _getDouble(row, headers, 'longitud_util_calculo_m'),
+      tipoElementoEstructura:
+          _getString(row, headers, 'tipo_elemento_estructura'),
     );
   }
 
@@ -920,7 +1049,8 @@ class _CatalogoImportacionScreenState
 
     if (preview == null ||
         (preview.panelCandidates.isEmpty &&
-            preview.inverterCandidates.isEmpty)) {
+            preview.inverterCandidates.isEmpty &&
+            preview.materialCandidates.isEmpty)) {
       return;
     }
 
@@ -932,10 +1062,13 @@ class _CatalogoImportacionScreenState
     var panelsUpdated = 0;
     var invertersCreated = 0;
     var invertersUpdated = 0;
+    var materialsCreated = 0;
+    var materialsUpdated = 0;
 
     try {
       final panelRepository = ref.read(panelCatalogRepositoryProvider);
       final inverterRepository = ref.read(inverterCatalogRepositoryProvider);
+      final materialRepository = ref.read(materialCatalogRepositoryProvider);
 
       for (final candidate in preview.panelCandidates) {
         final wasCreated = await panelRepository.upsertPanelByBrandAndModel(
@@ -962,13 +1095,28 @@ class _CatalogoImportacionScreenState
         }
       }
 
+      for (final candidate in preview.materialCandidates) {
+        final wasCreated = await materialRepository.upsertProduct(
+          candidate.input,
+        );
+
+        if (wasCreated) {
+          materialsCreated++;
+        } else {
+          materialsUpdated++;
+        }
+      }
+
       ref.invalidate(panelsCatalogProvider);
       ref.invalidate(invertersCatalogProvider);
+      ref.invalidate(materialCatalogProductsProvider);
 
       if (!mounted) return;
 
       _showSnackBar(
-        'Importación lista: $panelsCreated paneles creados, $panelsUpdated paneles actualizados, $invertersCreated inversores creados, $invertersUpdated inversores actualizados.',
+        'Importación lista: $panelsCreated paneles creados, $panelsUpdated paneles actualizados, '
+        '$invertersCreated inversores creados, $invertersUpdated inversores actualizados, '
+        '$materialsCreated materiales creados, $materialsUpdated materiales actualizados.',
       );
     } catch (error) {
       _showSnackBar('No se pudo importar el catálogo: $error');
@@ -1124,6 +1272,7 @@ class _CatalogImportPreview {
     required this.categoryCounts,
     required this.panelCandidates,
     required this.inverterCandidates,
+    required this.materialCandidates,
     required this.warnings,
   });
 
@@ -1131,6 +1280,7 @@ class _CatalogImportPreview {
   final Map<String, int> categoryCounts;
   final List<_PanelImportCandidate> panelCandidates;
   final List<_InverterImportCandidate> inverterCandidates;
+  final List<_MaterialImportCandidate> materialCandidates;
   final List<String> warnings;
 }
 
@@ -1152,6 +1302,16 @@ class _InverterImportCandidate {
 
   final int rowNumber;
   final SaveSolarInverterInput input;
+}
+
+class _MaterialImportCandidate {
+  const _MaterialImportCandidate({
+    required this.rowNumber,
+    required this.input,
+  });
+
+  final int rowNumber;
+  final material_entity.SaveMaterialCatalogProductInput input;
 }
 
 extension _SaveSolarInverterInputValidation on SaveSolarInverterInput {
@@ -1229,14 +1389,16 @@ class _ImportPreviewCard extends StatelessWidget {
           const SizedBox(height: 14),
           const _ImportInfoRow(
             icon: Icons.check_circle_outline,
-            text: 'Importación disponible: paneles solares e inversores.',
+            text:
+                'Importación disponible: paneles solares, inversores y materiales comerciales.',
           ),
           if (hasCommercialPending) ...[
             const SizedBox(height: 8),
             const _ImportInfoRow(
               icon: Icons.storefront_outlined,
               text:
-                  'Las demás categorías se detectan, pero aún no están disponibles para importación.',
+                  'Materiales comerciales (estructura, protecciones, eléctrico, tubería/cable, '
+                  'mano de obra) se importan al catálogo genérico de materiales.',
             ),
           ],
           if (hasTechnicalReferences) ...[

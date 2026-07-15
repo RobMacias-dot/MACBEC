@@ -654,6 +654,11 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
         _result = calculationResult;
       });
 
+      await ref.read(quotationDraftRepositoryProvider).updateLastCompletedStep(
+            draftId: activeDraftId,
+            step: QuotationDraftStep.energyAnalysis,
+          );
+
       ref.invalidate(quotationDraftConsumptionsProvider(activeDraftId));
       ref.invalidate(quotationDraftPvCalculationProvider(activeDraftId));
       ref.invalidate(quotationDraftsControllerProvider);

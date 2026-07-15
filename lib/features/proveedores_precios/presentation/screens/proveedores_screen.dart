@@ -24,7 +24,9 @@ class ProveedoresScreen extends StatelessWidget {
                   icon: Icons.table_chart_outlined,
                   title: 'Cargar Excel estándar',
                   description:
-                      'Actualiza el catálogo comercial usando la plantilla de importación. Actualmente importa paneles e inversores.',
+                      'Actualiza el catálogo comercial usando la plantilla de importación: '
+                      'paneles, inversores, estructura, protecciones, material eléctrico, '
+                      'tubería/cable y mano de obra.',
                   buttonLabel: 'Seleccionar Excel',
                   onTap: () => context.go(AppRoutes.importacionCatalogo),
                 ),

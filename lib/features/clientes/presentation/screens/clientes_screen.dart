@@ -69,13 +69,13 @@ class _ClientesListView extends StatelessWidget {
   }
 }
 
-class _ClientCard extends StatelessWidget {
+class _ClientCard extends ConsumerWidget {
   const _ClientCard({required this.client});
 
   final Client client;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final subtitleParts = <String>[
       if (_hasValue(client.phone)) client.phone!.trim(),
@@ -103,7 +103,17 @@ class _ClientCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Eliminar cliente',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _confirmDelete(context, ref),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
         onTap: () => context.push(AppRoutes.clienteDetalle, extra: client.id),
       ),
     );
@@ -111,6 +121,34 @@ class _ClientCard extends StatelessWidget {
 
   bool _hasValue(String? value) {
     return value != null && value.trim().isNotEmpty;
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar cliente'),
+        content: Text(
+          '¿Seguro que deseas eliminar a "${client.fullName}"? '
+          'Esta acción se puede revertir solo desde la base de datos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(clientRepositoryProvider).delete(client.id);
+    ref.invalidate(clientsControllerProvider);
   }
 }
 

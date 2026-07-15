@@ -10,6 +10,23 @@ class QuotationDraftStatus {
   static const cancelled = 'cancelled';
 }
 
+/// Marca el último módulo del flujo de cotización que el usuario completó
+/// para un borrador, de modo que la app pueda reanudarlo directo en la
+/// pantalla correcta en vez de que cada pantalla adivine el estado.
+class QuotationDraftStep {
+  const QuotationDraftStep._();
+
+  static const prospect = 'prospect';
+  static const cfeReceipt = 'cfe_receipt';
+  static const cfeReview = 'cfe_review';
+  static const energyAnalysis = 'energy_analysis';
+  static const technicalSelection = 'technical_selection';
+  static const electricalDimensioning = 'electrical_dimensioning';
+  static const structure = 'structure';
+  static const commercialQuote = 'commercial_quote';
+  static const clientPreview = 'client_preview';
+}
+
 class QuotationDraft {
   const QuotationDraft({
     required this.id,
@@ -35,6 +52,7 @@ class QuotationDraft {
     this.cfeTotalToPay,
     this.analysisPeakSunHours,
     this.analysisPanelPowerWatts,
+    this.lastCompletedStep,
   });
 
   final String id;
@@ -62,6 +80,8 @@ class QuotationDraft {
 
   final double? analysisPeakSunHours;
   final double? analysisPanelPowerWatts;
+
+  final String? lastCompletedStep;
 
   final DateTime createdAt;
   final DateTime updatedAt;

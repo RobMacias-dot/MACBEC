@@ -143,6 +143,11 @@ class QuotationCommercialRepository {
               inverterUnitCost: quote.inverterUnitCost,
               inverterUnitPrice: quote.inverterUnitPrice,
               inverterQuantity: quote.inverterQuantity,
+              structureMaterialsCost: Value(quote.structureMaterialsCost),
+              structureMaterialsPrice: Value(quote.structureMaterialsPrice),
+              structureMaterialsHasMissingPrices: Value(
+                quote.structureMaterialsHasMissingPrices,
+              ),
               subtotal: quote.subtotal,
               ivaAmount: quote.ivaAmount,
               total: quote.total,
@@ -312,6 +317,10 @@ class QuotationCommercialRepository {
       inverterUnitCost: row.inverterUnitCost,
       inverterUnitPrice: row.inverterUnitPrice,
       inverterQuantity: row.inverterQuantity,
+      structureMaterialsCost: row.structureMaterialsCost,
+      structureMaterialsPrice: row.structureMaterialsPrice,
+      structureMaterialsHasMissingPrices:
+          row.structureMaterialsHasMissingPrices,
       subtotal: row.subtotal,
       ivaAmount: row.ivaAmount,
       total: row.total,

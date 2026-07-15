@@ -15,6 +15,11 @@ final documentsByProjectProvider =
   return ref.watch(documentsRepositoryProvider).getByProjectId(projectId);
 });
 
+final documentByIdProvider =
+    FutureProvider.family<DocumentRecord?, String>((ref, documentId) async {
+  return ref.watch(documentsRepositoryProvider).getById(documentId);
+});
+
 class DocumentsRepository {
   DocumentsRepository(this._database);
 
@@ -49,6 +54,20 @@ class DocumentsRepository {
         );
 
     return documentId;
+  }
+
+  Future<DocumentRecord?> getById(String documentId) async {
+    final query = _database.select(_database.documents)
+      ..where(
+        (table) =>
+            table.id.equals(documentId) & table.isDeleted.equals(false),
+      );
+
+    final row = await query.getSingleOrNull();
+
+    if (row == null) return null;
+
+    return _mapRowToEntity(row);
   }
 
   Future<List<DocumentRecord>> getByDraftId(String quotationDraftId) async {

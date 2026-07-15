@@ -87,7 +87,9 @@ void main() {
     expect(cable!.requiredStrings, equals(2));
     expect(cable.totalConductors, equals(6)); // 2 strings x 3 conductores
     expect(conduit, isNotNull);
-    expect(conduit!.suggestedConduitTradeSize, equals('3/4"'));
+    // Tabla base para 6 conductores dá 3/4"; se suma 1/4" de holgura.
+    expect(conduit!.suggestedConduitTradeSize, equals('1"'));
+    expect(conduit.isStockedInCatalog, isTrue);
   });
 
   test('sin Voc/Isc del panel no se puede validar la configuracion de strings',

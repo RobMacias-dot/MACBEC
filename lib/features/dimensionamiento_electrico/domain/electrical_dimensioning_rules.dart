@@ -169,11 +169,19 @@ class DcConduitRecommendation {
     required this.totalConductors,
     required this.suggestedConduitTradeSize,
     required this.note,
+    required this.isStockedInCatalog,
   });
 
   final int totalConductors;
   final String suggestedConduitTradeSize;
   final String note;
+
+  /// `true` si el diámetro sugerido corresponde a una medida que hoy se
+  /// compra en el catálogo (ver Fase 3.13: solo 3/4" y 1" están dados de
+  /// alta en `Catalogo_Productos` / categoría TUBERIA al momento de escribir
+  /// esta regla). Si es `false`, hay que verificar disponibilidad con el
+  /// proveedor antes de cotizar.
+  final bool isStockedInCatalog;
 }
 
 class ElectricalDimensioningOption {
@@ -669,6 +677,11 @@ class ElectricalDimensioningRules {
     );
   }
 
+  // Medidas comerciales de tubería confirmadas hoy en el catálogo
+  // (Catalogo_Productos, categoria_app = TUBERIA). Cualquier otra medida
+  // sugerida debe validarse con el proveedor antes de cotizar.
+  static const _stockedConduitTradeSizes = {'3/4"', '1"'};
+
   static DcConduitRecommendation? _calculateDcConduitRecommendation({
     required DcCableRecommendation? cableRecommendation,
   }) {
@@ -678,7 +691,7 @@ class ElectricalDimensioningRules {
 
     final totalConductors = cableRecommendation.totalConductors;
 
-    final suggestedSize = switch (totalConductors) {
+    final calculatedSize = switch (totalConductors) {
       <= 3 => '1/2"',
       <= 6 => '3/4"',
       <= 10 => '1"',
@@ -687,12 +700,39 @@ class ElectricalDimensioningRules {
       _ => '2" o mayor',
     };
 
+    // Se suma 1/4" al resultado de la tabla para no dejar la tubería justa
+    // (margen de holgura para el llenado real de conductores).
+    final suggestedSize = _addQuarterInch(calculatedSize);
+    final isStocked = _stockedConduitTradeSizes.contains(suggestedSize);
+
     return DcConduitRecommendation(
       totalConductors: totalConductors,
       suggestedConduitTradeSize: suggestedSize,
-      note:
-          'Preliminar. Validar con tabla real de llenado de tubería, tipo de conductor, temperatura y norma aplicable.',
+      isStockedInCatalog: isStocked,
+      note: isStocked
+          ? 'Preliminar. Incluye holgura de 1/4" sobre la tabla base. '
+              'Validar con tabla real de llenado de tubería, tipo de '
+              'conductor, temperatura y norma aplicable.'
+          : 'Preliminar. Incluye holgura de 1/4" sobre la tabla base. Esta '
+              'medida no está confirmada en el catálogo actual (solo 3/4" y '
+              '1" están dados de alta) - verifica disponibilidad con el '
+              'proveedor antes de cotizar.',
     );
+  }
+
+  /// Sube una medida comercial de tubería al siguiente escalón de 1/4" de
+  /// la serie estándar (1/2, 3/4, 1, 1-1/4, 1-1/2, 2"). A partir de 2" ya no
+  /// hay una serie de 1/4" estandarizada, así que se conserva la etiqueta
+  /// "o mayor" para indicar que debe dimensionarse manualmente.
+  static String _addQuarterInch(String tradeSize) {
+    const sequence = ['1/2"', '3/4"', '1"', '1 1/4"', '1 1/2"'];
+
+    final index = sequence.indexOf(tradeSize);
+    if (index == -1 || index == sequence.length - 1) {
+      return '2" o mayor';
+    }
+
+    return sequence[index + 1];
   }
 
   static _AwgAmpacityReference _selectAwgByAmpacity(double designCurrent) {

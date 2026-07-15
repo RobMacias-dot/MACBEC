@@ -67,6 +67,22 @@ extension StructureFixingTypeInfo on StructureFixingType {
   }
 }
 
+/// Material del ángulo/estructura: PTR de acero o ángulo de aluminio. Ambos
+/// se compran en tramos comerciales de 6 m útiles (el nominal de 6.10 m del
+/// ángulo de aluminio es solo la medida de venta) - ver Fase 4.15.
+enum StructureAngleMaterial { steelPtr, aluminumAngle }
+
+extension StructureAngleMaterialInfo on StructureAngleMaterial {
+  String get label {
+    switch (this) {
+      case StructureAngleMaterial.steelPtr:
+        return 'PTR de acero';
+      case StructureAngleMaterial.aluminumAngle:
+        return 'Ángulo de aluminio';
+    }
+  }
+}
+
 class InclinedFlatRoofInput {
   const InclinedFlatRoofInput({
     required this.requiredPanels,
@@ -78,6 +94,7 @@ class InclinedFlatRoofInput {
     required this.inclinationDegrees,
     required this.frontLegCm,
     this.panelGapMm = 20,
+    this.angleMaterial = StructureAngleMaterial.steelPtr,
   });
 
   final int requiredPanels;
@@ -89,6 +106,7 @@ class InclinedFlatRoofInput {
   final double inclinationDegrees;
   final double frontLegCm;
   final double panelGapMm;
+  final StructureAngleMaterial angleMaterial;
 }
 
 class StructureRailPlan {
@@ -101,6 +119,25 @@ class StructureRailPlan {
 
   final int fiveMeterRails;
   final int sixMeterRails;
+  final double requiredMeters;
+  final double availableMeters;
+
+  double get wasteMeters => availableMeters - requiredMeters;
+}
+
+/// Plan de compra del material de ángulo (PTR o aluminio), con el mismo
+/// rigor de desperdicio que [StructureRailPlan]. A diferencia del riel, hoy
+/// solo existe una longitud comercial (6 m útiles) para ambos materiales de
+/// ángulo, así que no hay una combinación de tramos que optimizar - pero se
+/// expone el desperdicio explícitamente igual que en el riel.
+class StructureAnglePlan {
+  const StructureAnglePlan({
+    required this.sixMeterSections,
+    required this.requiredMeters,
+    required this.availableMeters,
+  });
+
+  final int sixMeterSections;
   final double requiredMeters;
   final double availableMeters;
 
@@ -138,6 +175,9 @@ class InclinedFlatRoofResult {
     required this.angleMaterialMeters,
     required this.angleSixMeterSections,
     required this.windBraceLengthMeters,
+    required this.angleMaterial,
+    required this.anglePlan,
+    required this.chemicalAnchorCartridgeCount,
   });
 
   final int requiredPanels;
@@ -173,6 +213,9 @@ class InclinedFlatRoofResult {
   final double angleMaterialMeters;
   final int angleSixMeterSections;
   final double windBraceLengthMeters;
+  final StructureAngleMaterial angleMaterial;
+  final StructureAnglePlan anglePlan;
+  final int chemicalAnchorCartridgeCount;
 
   double get middleLegMeters {
     if (legHeightsMeters.length <= 2) {
@@ -180,6 +223,17 @@ class InclinedFlatRoofResult {
     }
 
     return legHeightsMeters[legHeightsMeters.length ~/ 2];
+  }
+
+  /// Separación entre patas de una misma fila, según la fórmula del
+  /// documento funcional original (pág. 8):
+  /// `[(valor_horizontal_total) - 1] / (No._de_paneles - 2)`.
+  /// `supportPointsPerRow` ya equivale a `panelsHorizontal - 1` (una pata
+  /// entre cada panel), por lo que `supportPointsPerRow - 1` gaps equivale
+  /// al denominador `panelsHorizontal - 2` de la fórmula original.
+  double get legSpacingMeters {
+    if (supportPointsPerRow <= 1) return 0;
+    return (widthMeters - 1) / (supportPointsPerRow - 1);
   }
 
   bool get hasExactPanelDistribution {
@@ -241,11 +295,14 @@ class StructureDesignRules {
         input.structuresCount;
     final endClampCount = 4 * input.structuresCount;
 
-    final spacingBetweenSupports = input.panelsHorizontal > 1
-        ? widthMeters / (input.panelsHorizontal - 1)
-        : widthMeters;
+    // Distancia entre patas (cateto adyacente del rompevientos), misma
+    // fórmula del documento funcional usada en [legSpacingMeters]:
+    // (valor_horizontal_total - 1) / (No. de paneles - 2).
+    final legSpacingMeters = supportPointsPerRow <= 1
+        ? widthMeters
+        : (widthMeters - 1) / (supportPointsPerRow - 1);
     final windBraceLengthMeters =
-        sqrt(pow(rearLegMeters, 2) + pow(spacingBetweenSupports, 2)) + 0.10;
+        sqrt(pow(rearLegMeters, 2) + pow(legSpacingMeters, 2)) + 0.10;
     final windBracePiecesCount = 2 * input.structuresCount;
 
     final legsMetersPerStructure =
@@ -261,7 +318,10 @@ class StructureDesignRules {
                 longitudinalMetersPerStructure +
                 windBracesMetersPerStructure) *
             input.structuresCount;
+    final anglePlan = _optimizeAngleStock(angleMaterialMeters);
     final fixingPiecesPerTypeCount = totalLegCount * 2;
+    final chemicalAnchorCartridgeCount =
+        chemicalAnchorCartridges(fixingPiecesPerTypeCount);
 
     return InclinedFlatRoofResult(
       requiredPanels: input.requiredPanels,
@@ -291,8 +351,33 @@ class StructureDesignRules {
       largueroLengthMeters: largueroLengthMeters,
       windBracePiecesCount: windBracePiecesCount,
       angleMaterialMeters: angleMaterialMeters,
-      angleSixMeterSections: (angleMaterialMeters / 6).ceil(),
+      angleSixMeterSections: anglePlan.sixMeterSections,
       windBraceLengthMeters: windBraceLengthMeters,
+      angleMaterial: input.angleMaterial,
+      anglePlan: anglePlan,
+      chemicalAnchorCartridgeCount: chemicalAnchorCartridgeCount,
+    );
+  }
+
+  /// Cartuchos de anclaje químico necesarios (Fester 890, 20 tuercas por
+  /// cartucho - ver Fase 4.17). Solo aplica cuando la fijación elegida es
+  /// anclaje químico; para otros tipos de fijación el valor no debe usarse.
+  static int chemicalAnchorCartridges(int totalNuts) {
+    const nutsPerCartridge = 20;
+    if (totalNuts <= 0) return 0;
+    return (totalNuts / nutsPerCartridge).ceil();
+  }
+
+  static StructureAnglePlan _optimizeAngleStock(double requiredMeters) {
+    const nominalSixUsefulMeters = 6.00;
+    final sections = requiredMeters <= 0
+        ? 0
+        : (requiredMeters / nominalSixUsefulMeters).ceil();
+
+    return StructureAnglePlan(
+      sixMeterSections: sections,
+      requiredMeters: requiredMeters,
+      availableMeters: sections * nominalSixUsefulMeters,
     );
   }
 

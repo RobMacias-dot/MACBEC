@@ -170,6 +170,8 @@ final quotationSummaryProvider =
         panelWidthMm: panel.widthMm!,
         inclinationDegrees: structureSelection.inclinationDegrees,
         frontLegCm: structureSelection.frontLegCm,
+        angleMaterial: _angleMaterialFromKey(structureSelection.angleMaterial) ??
+            StructureAngleMaterial.steelPtr,
       ),
     );
   }
@@ -230,6 +232,16 @@ AcPhaseType? _acPhaseTypeFromKey(String? key) {
   if (key == null) return null;
 
   for (final value in AcPhaseType.values) {
+    if (value.name == key) return value;
+  }
+
+  return null;
+}
+
+StructureAngleMaterial? _angleMaterialFromKey(String? key) {
+  if (key == null) return null;
+
+  for (final value in StructureAngleMaterial.values) {
     if (value.name == key) return value;
   }
 
