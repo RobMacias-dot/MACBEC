@@ -15,6 +15,7 @@ import '../../../cotizaciones/data/quotation_draft_repository.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../../expediente/data/documents_repository.dart';
 import '../../application/ocr_service.dart';
+import '../../domain/cfe_receipt_text_parser.dart';
 
 class ReciboCfeRevisionScreen extends ConsumerStatefulWidget {
   const ReciboCfeRevisionScreen({super.key});
@@ -39,6 +40,7 @@ class _ReciboCfeRevisionScreenState
   bool _isSaving = false;
   bool _isEditing = true;
   bool _usedOcrSuggestion = false;
+  bool _isRunningManualOcr = false;
   String? _prefilledDraftId;
 
   @override
@@ -136,6 +138,31 @@ class _ReciboCfeRevisionScreenState
                   key: _formKey,
                   child: Column(
                     children: [
+                      if (_isEditing) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isRunningManualOcr
+                                ? null
+                                : () => _runManualOcr(draft),
+                            icon: _isRunningManualOcr
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.auto_awesome_outlined),
+                            label: Text(
+                              _isRunningManualOcr
+                                  ? 'Obteniendo información...'
+                                  : 'Obtener información',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       if (_usedOcrSuggestion && _isEditing) ...[
                         Container(
                           width: double.infinity,
@@ -416,35 +443,7 @@ class _ReciboCfeRevisionScreenState
       final suggestion = ref.read(cfeOcrSuggestionProvider);
 
       if (suggestion != null) {
-        if (_holderNameController.text.isEmpty &&
-            suggestion.holderName != null) {
-          _holderNameController.text = suggestion.holderName!;
-        }
-        if (_serviceAddressController.text.isEmpty &&
-            suggestion.serviceAddress != null) {
-          _serviceAddressController.text = suggestion.serviceAddress!;
-        }
-        if (_rpuController.text.isEmpty && suggestion.rpu != null) {
-          _rpuController.text = suggestion.rpu!;
-        }
-        if (_tariffController.text.isEmpty && suggestion.tariff != null) {
-          _tariffController.text = suggestion.tariff!;
-        }
-        if (_billingPeriodController.text.isEmpty &&
-            suggestion.billingPeriod != null) {
-          _billingPeriodController.text = suggestion.billingPeriod!;
-        }
-        if (_currentPeriodKwhController.text.isEmpty &&
-            suggestion.currentPeriodKwh != null) {
-          _currentPeriodKwhController.text =
-              _formatNullableNumber(suggestion.currentPeriodKwh);
-        }
-        if (_totalToPayController.text.isEmpty &&
-            suggestion.totalToPay != null) {
-          _totalToPayController.text =
-              _formatNullableNumber(suggestion.totalToPay);
-        }
-
+        _applySuggestionToEmptyFields(suggestion);
         _usedOcrSuggestion = true;
       }
 
@@ -458,6 +457,104 @@ class _ReciboCfeRevisionScreenState
 
     _isEditing = !draft.hasCompleteCfeReview;
     _prefilledDraftId = draft.id;
+  }
+
+  /// Rellena solo los campos vacíos del formulario con la sugerencia de
+  /// OCR — compartido entre el prefill automático al entrar y el botón
+  /// manual "Obtener información".
+  void _applySuggestionToEmptyFields(CfeReceiptOcrSuggestion suggestion) {
+    if (_holderNameController.text.isEmpty && suggestion.holderName != null) {
+      _holderNameController.text = suggestion.holderName!;
+    }
+    if (_serviceAddressController.text.isEmpty &&
+        suggestion.serviceAddress != null) {
+      _serviceAddressController.text = suggestion.serviceAddress!;
+    }
+    if (_rpuController.text.isEmpty && suggestion.rpu != null) {
+      _rpuController.text = suggestion.rpu!;
+    }
+    if (_tariffController.text.isEmpty && suggestion.tariff != null) {
+      _tariffController.text = suggestion.tariff!;
+    }
+    if (_billingPeriodController.text.isEmpty &&
+        suggestion.billingPeriod != null) {
+      _billingPeriodController.text = suggestion.billingPeriod!;
+    }
+    if (_currentPeriodKwhController.text.isEmpty &&
+        suggestion.currentPeriodKwh != null) {
+      _currentPeriodKwhController.text =
+          _formatNullableNumber(suggestion.currentPeriodKwh);
+    }
+    if (_totalToPayController.text.isEmpty && suggestion.totalToPay != null) {
+      _totalToPayController.text =
+          _formatNullableNumber(suggestion.totalToPay);
+    }
+  }
+
+  Future<void> _runManualOcr(QuotationDraft draft) async {
+    final documentId = draft.cfeReceiptDocumentId;
+    if (documentId == null) return;
+
+    setState(() {
+      _isRunningManualOcr = true;
+    });
+
+    try {
+      final document = await ref.read(documentByIdProvider(documentId).future);
+
+      if (document == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El recibo adjunto ya no está disponible.'),
+          ),
+        );
+        return;
+      }
+
+      final suggestion = await ref
+          .read(ocrServiceProvider)
+          .extractCfeReceiptSuggestion(document.localPath);
+
+      if (!mounted) return;
+
+      if (suggestion == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se detectó información nueva en el recibo.'),
+          ),
+        );
+        return;
+      }
+
+      ref.read(cfeOcrSuggestionProvider.notifier).state = suggestion;
+
+      setState(() {
+        _applySuggestionToEmptyFields(suggestion);
+        _usedOcrSuggestion = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Datos detectados. Verifica cada campo antes de guardar.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo obtener información del recibo: $error'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunningManualOcr = false;
+        });
+      }
+    }
   }
 
   Future<void> _saveReview(String activeDraftId) async {

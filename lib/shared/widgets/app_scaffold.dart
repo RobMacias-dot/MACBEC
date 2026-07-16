@@ -104,6 +104,7 @@ class AppScaffold extends StatelessWidget {
       case AppRoutes.clienteDetalle:
         return AppRoutes.clientes;
       case AppRoutes.cotizacionProspectoForm:
+        return AppRoutes.dashboard;
       case AppRoutes.cotizacionInterna:
       case AppRoutes.cotizacionClientePreview:
       case AppRoutes.propuestaTecnica:

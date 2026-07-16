@@ -32,7 +32,7 @@ class DashboardScreen extends ConsumerWidget {
                         null;
                     ref.read(quotationDraftProspectProvider.notifier).state =
                         null;
-                    context.go(AppRoutes.cotizacion);
+                    context.go(AppRoutes.cotizacionProspectoForm);
                   },
                 ),
                 _DashboardButton(

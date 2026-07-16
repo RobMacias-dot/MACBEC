@@ -5,22 +5,55 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../cotizaciones/application/quotation_draft_controller.dart';
+import '../../../cotizaciones/application/quotation_draft_navigation.dart';
+import '../../../cotizaciones/domain/entities/quotation_draft.dart';
+import '../../../cotizaciones/domain/entities/quotation_draft_prospect.dart';
+import '../../application/client_quotation_status_provider.dart';
 import '../../application/clients_controller.dart';
 import '../../domain/entities/client.dart';
 
-class ClientesScreen extends ConsumerWidget {
+/// Pantalla de clientes, separada en 3 pestañas según si tienen o no una
+/// cotización asociada. La lista de "prospectos pendientes" que antes vivía
+/// en el hub de cotización (`CotizacionScreen`) ahora vive aquí, como la
+/// pestaña "Pendiente".
+class ClientesScreen extends ConsumerStatefulWidget {
   const ClientesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ClientesScreen> createState() => _ClientesScreenState();
+}
+
+class _ClientesScreenState extends ConsumerState<ClientesScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final clientsAsync = ref.watch(clientsControllerProvider);
+    final statusAsync = ref.watch(allClientsQuotationStatusProvider);
 
     return AppScaffold(
       title: 'Clientes',
       actions: [
         IconButton(
           tooltip: 'Actualizar clientes',
-          onPressed: () => ref.invalidate(clientsControllerProvider),
+          onPressed: () {
+            ref.invalidate(clientsControllerProvider);
+            ref.invalidate(allClientsQuotationStatusProvider);
+          },
           icon: const Icon(Icons.refresh),
         ),
       ],
@@ -44,7 +77,64 @@ class ClientesScreen extends ConsumerWidget {
             );
           }
 
-          return _ClientesListView(clients: clients);
+          final statusMap = statusAsync.valueOrNull ?? const {};
+
+          final noneClients = <Client>[];
+          final pendingClients = <Client>[];
+          final completeClients = <Client>[];
+
+          for (final client in clients) {
+            final status = statusMap[client.id] ?? ClientQuotationStatus.none;
+            switch (status.bucket) {
+              case ClientQuotationBucket.none:
+                noneClients.add(client);
+                break;
+              case ClientQuotationBucket.pending:
+                pendingClients.add(client);
+                break;
+              case ClientQuotationBucket.complete:
+                completeClients.add(client);
+                break;
+            }
+          }
+
+          return Column(
+            children: [
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: 'Sin cotización (${noneClients.length})'),
+                  Tab(text: 'Pendiente (${pendingClients.length})'),
+                  Tab(text: 'Completa (${completeClients.length})'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _ClientesListView(
+                      clients: noneClients,
+                      statusMap: statusMap,
+                      emptyMessage:
+                          'No hay clientes sin cotización. Usa "Nueva cotización" en el dashboard para dar de alta uno.',
+                    ),
+                    _ClientesListView(
+                      clients: pendingClients,
+                      statusMap: statusMap,
+                      emptyMessage:
+                          'No hay cotizaciones pendientes de terminar.',
+                    ),
+                    _ClientesListView(
+                      clients: completeClients,
+                      statusMap: statusMap,
+                      emptyMessage: 'Todavía no hay cotizaciones completas.',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -52,27 +142,48 @@ class ClientesScreen extends ConsumerWidget {
 }
 
 class _ClientesListView extends StatelessWidget {
-  const _ClientesListView({required this.clients});
+  const _ClientesListView({
+    required this.clients,
+    required this.statusMap,
+    required this.emptyMessage,
+  });
 
   final List<Client> clients;
+  final Map<String, ClientQuotationStatus> statusMap;
+  final String emptyMessage;
 
   @override
   Widget build(BuildContext context) {
+    if (clients.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            emptyMessage,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+
     return ListView.separated(
       itemCount: clients.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final client = clients[index];
-        return _ClientCard(client: client);
+        final status = statusMap[client.id] ?? ClientQuotationStatus.none;
+        return _ClientCard(client: client, status: status);
       },
     );
   }
 }
 
 class _ClientCard extends ConsumerWidget {
-  const _ClientCard({required this.client});
+  const _ClientCard({required this.client, required this.status});
 
   final Client client;
+  final ClientQuotationStatus status;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -84,43 +195,80 @@ class _ClientCard extends ConsumerWidget {
     ];
 
     return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primaryContainer,
-          foregroundColor: theme.colorScheme.onPrimaryContainer,
-          child: const Icon(Icons.person_outline),
-        ),
-        title: Text(
-          client.fullName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleMedium,
-        ),
-        subtitle: subtitleParts.isEmpty
-            ? const Text('Sin datos de contacto')
-            : Text(
-                subtitleParts.join(' • '),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Eliminar cliente',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _confirmDelete(context, ref),
+      child: Column(
+        children: [
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.primaryContainer,
+              foregroundColor: theme.colorScheme.onPrimaryContainer,
+              child: const Icon(Icons.person_outline),
             ),
-            const Icon(Icons.chevron_right),
-          ],
-        ),
-        onTap: () => context.push(AppRoutes.clienteDetalle, extra: client.id),
+            title: Text(
+              client.fullName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium,
+            ),
+            subtitle: subtitleParts.isEmpty
+                ? const Text('Sin datos de contacto')
+                : Text(
+                    subtitleParts.join(' • '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Eliminar cliente',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDelete(context, ref),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            onTap: () => context.push(AppRoutes.clienteDetalle, extra: client.id),
+          ),
+          if (status.bucket == ClientQuotationBucket.pending &&
+              status.latestDraft != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _continueQuotation(context, ref, status.latestDraft!),
+                  icon: const Icon(Icons.play_circle_outline),
+                  label: const Text('Continuar cotización'),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
   bool _hasValue(String? value) {
     return value != null && value.trim().isNotEmpty;
+  }
+
+  void _continueQuotation(
+    BuildContext context,
+    WidgetRef ref,
+    QuotationDraft draft,
+  ) {
+    ref.read(activeQuotationDraftIdProvider.notifier).state = draft.id;
+    ref.read(quotationDraftProspectProvider.notifier).state =
+        QuotationDraftProspect(
+      fullName: draft.prospectName,
+      phone: draft.phone,
+      whatsapp: draft.whatsapp,
+      email: draft.email,
+      address: draft.address,
+      notes: draft.notes,
+    );
+
+    context.push(nextRouteForDraft(draft));
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -149,6 +297,7 @@ class _ClientCard extends ConsumerWidget {
 
     await ref.read(clientRepositoryProvider).delete(client.id);
     ref.invalidate(clientsControllerProvider);
+    ref.invalidate(allClientsQuotationStatusProvider);
   }
 }
 

@@ -32,4 +32,29 @@ class OcrService {
       await recognizer.close();
     }
   }
+
+  /// Corre el OCR sobre una (o dos, frente/reverso) imagen del recibo CFE y
+  /// la pasa por [CfeReceiptTextParser]. Compartido entre la captura
+  /// automática (`ReciboCfeScreen`) y el botón manual "Obtener información"
+  /// de `ReciboCfeRevisionScreen`, para no duplicar la lógica de extracción.
+  Future<CfeReceiptOcrSuggestion?> extractCfeReceiptSuggestion(
+    String imagePath, {
+    String? extraImagePath,
+  }) async {
+    final rawText = await extractTextDraft(imagePath);
+    var combinedText = rawText ?? '';
+
+    if (extraImagePath != null) {
+      final extraText = await extractTextDraft(extraImagePath);
+      if (extraText != null && extraText.isNotEmpty) {
+        combinedText =
+            combinedText.isEmpty ? extraText : '$combinedText\n$extraText';
+      }
+    }
+
+    if (combinedText.isEmpty) return null;
+
+    final suggestion = CfeReceiptTextParser.parse(combinedText);
+    return suggestion.isEmpty ? null : suggestion;
+  }
 }

@@ -250,6 +250,16 @@ class _EstructuraScreenState extends ConsumerState<EstructuraScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        context.push(AppRoutes.cotizacionInterna),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('Continuar a cotización interna'),
+                  ),
+                ),
               ],
             ] else if (result != null) ...[
               const SizedBox(height: 16),

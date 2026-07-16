@@ -40,10 +40,10 @@ class _CotizacionClientePreviewScreenState
         title: 'Vista cliente',
         child: _EmptyStateWithButton(
           title: 'No hay cotización activa',
-          message: 'Crea o selecciona una cotización para continuar.',
+          message: 'Ve a Clientes y continúa una cotización pendiente, o crea un cliente nuevo.',
           icon: Icons.picture_as_pdf_outlined,
-          buttonLabel: 'Ir a cotización',
-          onPressed: () => context.go(AppRoutes.cotizacion),
+          buttonLabel: 'Ir a Clientes',
+          onPressed: () => context.go(AppRoutes.clientes),
         ),
       );
     }

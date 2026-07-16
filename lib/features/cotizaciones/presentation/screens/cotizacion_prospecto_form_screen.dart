@@ -128,17 +128,12 @@ class _CotizacionProspectoFormScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Prospecto guardado. Se creó el cliente y el proyecto vinculado; '
-            'pendiente de recibo CFE.',
+            'Prospecto guardado. Se creó el cliente y el proyecto vinculado.',
           ),
         ),
       );
 
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go(AppRoutes.cotizacion);
-      }
+      context.push(AppRoutes.reciboCfe);
     } catch (error) {
       if (!mounted) return;
 
@@ -253,7 +248,7 @@ class _CotizacionProspectoFormScreenState
                     )
                   : const Icon(Icons.save_outlined),
               label: Text(
-                _isSaving ? 'Guardando...' : 'Guardar pendiente de recibo CFE',
+                _isSaving ? 'Guardando...' : 'Guardar y continuar',
               ),
             ),
             const SizedBox(height: 10),
@@ -264,7 +259,7 @@ class _CotizacionProspectoFormScreenState
                       if (context.canPop()) {
                         context.pop();
                       } else {
-                        context.go(AppRoutes.cotizacion);
+                        context.go(AppRoutes.dashboard);
                       }
                     },
               icon: const Icon(Icons.arrow_back),

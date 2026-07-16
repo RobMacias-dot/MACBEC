@@ -8,8 +8,10 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../clientes/application/clients_controller.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
+import '../../../cotizaciones/application/quotation_draft_navigation.dart';
 import '../../../cotizaciones/data/quotation_draft_repository.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
+import '../../../cotizaciones/domain/entities/quotation_draft_prospect.dart';
 import '../../application/projects_controller.dart';
 import '../../domain/entities/project.dart';
 import 'proyecto_form_screen.dart';
@@ -352,32 +354,16 @@ class _ProjectDetail extends ConsumerWidget {
 
   void _openDraft(BuildContext context, WidgetRef ref, QuotationDraft draft) {
     ref.read(activeQuotationDraftIdProvider.notifier).state = draft.id;
-    context.push(_nextRouteForDraft(draft));
-  }
-
-  String _nextRouteForDraft(QuotationDraft draft) {
-    if (!draft.hasCfeReceipt ||
-        draft.status == QuotationDraftStatus.receiptPending) {
-      return AppRoutes.reciboCfe;
-    }
-
-    if (!draft.hasCompleteCfeReview) {
-      return AppRoutes.reciboCfeRevision;
-    }
-
-    switch (draft.status) {
-      case QuotationDraftStatus.quotationInProgress:
-        return AppRoutes.cotizacionInterna;
-      case QuotationDraftStatus.quotationSent:
-      case QuotationDraftStatus.accepted:
-        return AppRoutes.cotizacionClientePreview;
-      case QuotationDraftStatus.cancelled:
-        return AppRoutes.cotizacion;
-      case QuotationDraftStatus.inAnalysis:
-      case QuotationDraftStatus.receiptReceived:
-      default:
-        return AppRoutes.analisisConsumo;
-    }
+    ref.read(quotationDraftProspectProvider.notifier).state =
+        QuotationDraftProspect(
+      fullName: draft.prospectName,
+      phone: draft.phone,
+      whatsapp: draft.whatsapp,
+      email: draft.email,
+      address: draft.address,
+      notes: draft.notes,
+    );
+    context.push(nextRouteForDraft(draft));
   }
 }
 

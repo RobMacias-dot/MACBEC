@@ -61,10 +61,10 @@ class _PrefacturaScreenState extends ConsumerState<PrefacturaScreen> {
         title: 'Pre-factura',
         child: _EmptyStateWithButton(
           title: 'No hay cotización activa',
-          message: 'Crea o selecciona una cotización para continuar.',
+          message: 'Ve a Clientes y continúa una cotización pendiente, o crea un cliente nuevo.',
           icon: Icons.receipt_long_outlined,
-          buttonLabel: 'Ir a cotización',
-          onPressed: () => context.go(AppRoutes.cotizacion),
+          buttonLabel: 'Ir a Clientes',
+          onPressed: () => context.go(AppRoutes.clientes),
         ),
       );
     }

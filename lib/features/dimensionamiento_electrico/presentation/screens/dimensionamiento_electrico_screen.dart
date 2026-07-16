@@ -55,12 +55,11 @@ class _DimensionamientoElectricoScreenState
         title: 'Dimensionamiento eléctrico',
         child: _EmptyStateWithButton(
           title: 'No hay cotización activa',
-          message:
-              'Primero crea o selecciona una cotización provisional y guarda su análisis energético.',
+          message: 'Ve a Clientes y continúa una cotización pendiente, o crea un cliente nuevo.',
           icon: Icons.electrical_services_outlined,
-          buttonIcon: Icons.request_quote_outlined,
-          buttonLabel: 'Ir a cotización',
-          onPressed: () => context.go(AppRoutes.cotizacion),
+          buttonIcon: Icons.people_outline,
+          buttonLabel: 'Ir a Clientes',
+          onPressed: () => context.go(AppRoutes.clientes),
         ),
       );
     }

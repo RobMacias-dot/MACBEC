@@ -37,11 +37,11 @@ class _SeleccionTecnicaScreenState
         title: 'Selección técnica',
         child: _EmptyStateWithButton(
           title: 'No hay cotización activa',
-          message: 'Crea o selecciona una cotización para continuar.',
+          message: 'Ve a Clientes y continúa una cotización pendiente, o crea un cliente nuevo.',
           icon: Icons.fact_check_outlined,
-          buttonIcon: Icons.request_quote_outlined,
-          buttonLabel: 'Ir a cotización',
-          onPressed: () => context.go(AppRoutes.cotizacion),
+          buttonIcon: Icons.people_outline,
+          buttonLabel: 'Ir a Clientes',
+          onPressed: () => context.go(AppRoutes.clientes),
         ),
       );
     }

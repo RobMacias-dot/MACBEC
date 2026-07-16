@@ -17,7 +17,6 @@ import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/data/quotation_draft_repository.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
 import '../../application/ocr_service.dart';
-import '../../domain/cfe_receipt_text_parser.dart';
 
 class ReciboCfeScreen extends ConsumerStatefulWidget {
   const ReciboCfeScreen({super.key});
@@ -402,24 +401,11 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
     });
 
     try {
-      final ocrService = ref.read(ocrServiceProvider);
-      final rawText = await ocrService.extractTextDraft(imagePath);
+      final suggestion = await ref
+          .read(ocrServiceProvider)
+          .extractCfeReceiptSuggestion(imagePath, extraImagePath: extraImagePath);
 
-      var combinedText = rawText ?? '';
-
-      if (extraImagePath != null) {
-        final extraText = await ocrService.extractTextDraft(extraImagePath);
-        if (extraText != null && extraText.isNotEmpty) {
-          combinedText =
-              combinedText.isEmpty ? extraText : '$combinedText\n$extraText';
-        }
-      }
-
-      if (combinedText.isEmpty) return;
-
-      final suggestion = CfeReceiptTextParser.parse(combinedText);
-
-      if (!suggestion.isEmpty) {
+      if (suggestion != null) {
         ref.read(cfeOcrSuggestionProvider.notifier).state = suggestion;
       }
     } catch (_) {
