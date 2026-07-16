@@ -231,6 +231,98 @@ class Panels extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+/// Metadatos de archivos que respaldan una especificación técnica.
+///
+/// No reutiliza [Documents]: estos registros no pertenecen a un cliente ni a
+/// una cotización y se conservan aunque cambie el catálogo comercial.
+class TechnicalDocuments extends Table with LocalFirstColumns {
+  TextColumn get source => text()();
+  TextColumn get sourceVersion => text().nullable()();
+  TextColumn get localPath => text().nullable()();
+  TextColumn get fileName => text()();
+  TextColumn get sha256 => text().nullable()();
+  TextColumn get verificationStatus => text()();
+  TextColumn get confidenceLevel => text()();
+  DateTimeColumn get publishedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Revisión inmutable de la ficha técnica de un producto del catálogo.
+class TechnicalProductRevisions extends Table with LocalFirstColumns {
+  TextColumn get panelId => text().references(Panels, #id)();
+  TextColumn get revisionCode => text()();
+  TextColumn get sourceDocumentId =>
+      text().nullable().references(TechnicalDocuments, #id)();
+  TextColumn get verificationStatus => text()();
+  TextColumn get confidenceLevel => text()();
+  BoolColumn get isCurrent => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get effectiveAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Evidencia por campo para conservar la trazabilidad de valores críticos.
+class TechnicalFieldEvidence extends Table with LocalFirstColumns {
+  TextColumn get productRevisionId =>
+      text().references(TechnicalProductRevisions, #id)();
+  TextColumn get fieldKey => text()();
+  TextColumn get valueText => text()();
+  TextColumn get valueStatus => text()();
+  TextColumn get sourceDocumentId =>
+      text().nullable().references(TechnicalDocuments, #id)();
+  TextColumn get sourceLocator => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Datos extendidos de panel que no pertenecen al catálogo comercial.
+class PanelTechnicalSpecifications extends Table with LocalFirstColumns {
+  TextColumn get productRevisionId =>
+      text().references(TechnicalProductRevisions, #id)();
+  TextColumn get technology => text().nullable()();
+  IntColumn get cellCount => integer().nullable()();
+  RealColumn get vmp => real().nullable()();
+  RealColumn get imp => real().nullable()();
+  RealColumn get efficiencyPercent => real().nullable()();
+  RealColumn get pmaxTemperatureCoefficientPerC => real().nullable()();
+  RealColumn get vocTemperatureCoefficientPerC => real().nullable()();
+  RealColumn get iscTemperatureCoefficientPerC => real().nullable()();
+  RealColumn get noctCelsius => real().nullable()();
+  RealColumn get weightKg => real().nullable()();
+  RealColumn get maxSystemVoltage => real().nullable()();
+  RealColumn get maxSeriesFuseAmps => real().nullable()();
+  RealColumn get minOperatingTemperatureCelsius => real().nullable()();
+  RealColumn get maxOperatingTemperatureCelsius => real().nullable()();
+  RealColumn get frontLoadPa => real().nullable()();
+  RealColumn get rearLoadPa => real().nullable()();
+  TextColumn get specificationJson => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Compatibilidades técnicas entre productos usando sus claves de catálogo.
+class TechnicalProductCompatibilities extends Table with LocalFirstColumns {
+  @ReferenceName('sourcePanelCompatibilities')
+  TextColumn get sourcePanelId => text().references(Panels, #id)();
+
+  @ReferenceName('compatiblePanelCompatibilities')
+  TextColumn get compatiblePanelId =>
+      text().nullable().references(Panels, #id)();
+  TextColumn get compatibilityType => text()();
+  TextColumn get status => text()();
+  TextColumn get evidenceId =>
+      text().nullable().references(TechnicalFieldEvidence, #id)();
+  TextColumn get notes => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class Inverters extends Table with LocalFirstColumns {
   TextColumn get brand => text()();
   TextColumn get model => text()();
@@ -582,6 +674,11 @@ class SyncQueue extends Table with LocalFirstColumns {
     QuotationDraftPvCalculations,
     Suppliers,
     Panels,
+    TechnicalDocuments,
+    TechnicalProductRevisions,
+    TechnicalFieldEvidence,
+    PanelTechnicalSpecifications,
+    TechnicalProductCompatibilities,
     Inverters,
     Cables,
     Conduits,
@@ -607,7 +704,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -761,6 +858,13 @@ class AppDatabase extends _$AppDatabase {
               quotationDraftCommercialQuotes,
               quotationDraftCommercialQuotes.structureMaterialsHasMissingPrices,
             );
+          }
+          if (from < 20) {
+            await m.createTable(technicalDocuments);
+            await m.createTable(technicalProductRevisions);
+            await m.createTable(technicalFieldEvidence);
+            await m.createTable(panelTechnicalSpecifications);
+            await m.createTable(technicalProductCompatibilities);
           }
         },
       );
