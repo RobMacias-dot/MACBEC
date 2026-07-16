@@ -20,7 +20,11 @@ class ElectricalDimensioningInput {
     return selectedPanel?.powerWatts ?? panelPowerWatts;
   }
 
-  double get totalPanelPowerWatts => requiredPanels * effectivePanelPowerWatts;
+  double get totalPanelPowerWatts =>
+      ElectricalDimensioningRules.installedDcPower(
+        moduleCount: requiredPanels,
+        modulePmaxWatts: effectivePanelPowerWatts,
+      );
 }
 
 enum AcConductorMaterial {
@@ -370,6 +374,16 @@ class ElectricalDimensioningResult {
 
 class ElectricalDimensioningRules {
   const ElectricalDimensioningRules._();
+
+  /// Potencia DC nominal instalada. Es una referencia derivada, nunca un
+  /// valor de placa ni una corriente oficial del fabricante.
+  static double installedDcPower({
+    required int moduleCount,
+    required double modulePmaxWatts,
+  }) {
+    if (moduleCount < 0 || modulePmaxWatts < 0) return 0;
+    return moduleCount * modulePmaxWatts;
+  }
 
   static const int _conductorsPerDcString = 3;
 
