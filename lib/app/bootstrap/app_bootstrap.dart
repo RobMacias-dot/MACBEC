@@ -1,3 +1,6 @@
+import '../../data/local/database/app_database.dart';
+import '../../features/engineering_core/data/jinko_66hl4m_bdv_seed.dart';
+
 class AppBootstrap {
   const AppBootstrap._();
 
@@ -9,5 +12,14 @@ class AppBootstrap {
     // - preparación de SQLite
     // - carga de settings iniciales
     // - migraciones futuras
+    //
+    // El catálogo técnico confirmado se inicializa de forma idempotente y
+    // separada de precios o datos de demo.
+    final database = AppDatabase();
+    try {
+      await Jinko66hl4mBdvSeed.ensureSeeded(database);
+    } finally {
+      await database.close();
+    }
   }
 }
