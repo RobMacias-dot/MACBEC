@@ -67,26 +67,82 @@ class CfeReceiptTextParser {
     );
   }
 
+  // Confusiones típicas del OCR de ML Kit entre letras y dígitos impresos.
+  // Solo se aplica sobre fragmentos ya identificados como numéricos por una
+  // regex (RPU, kWh, total), nunca sobre texto libre como nombres.
+  static const _digitConfusionMap = {
+    'O': '0',
+    'o': '0',
+    'I': '1',
+    'i': '1',
+    'L': '1',
+    'l': '1',
+    'S': '5',
+    's': '5',
+    'B': '8',
+  };
+
+  static String _normalizeOcrDigits(String token) {
+    final buffer = StringBuffer();
+    for (final rune in token.runes) {
+      final char = String.fromCharCode(rune);
+      buffer.write(_digitConfusionMap[char] ?? char);
+    }
+    return buffer.toString();
+  }
+
+  // Un token capturado con el set de confusión (letras+dígitos) solo se
+  // acepta como número real si ya traía al menos un dígito de verdad; si no,
+  // es casi seguro una palabra cualquiera que terminó calzando el patrón
+  // (ej. la "o" final de "Periodo" antes de un salto de línea).
+  static bool _hasRealDigit(String token) => RegExp(r'\d').hasMatch(token);
+
   static String? _findRpu(String text) {
     final labeled = RegExp(
-      r'(?:RMU|RPU|No\.?\s*de\s*Servicio|Servicio)\D{0,10}(\d{8,15})',
+      r'(?:RMU|RPU|No\.?\s*de\s*Servicio|Servicio)[\s\S]{0,20}?([0-9OoIiLlSsB]{8,15})',
       caseSensitive: false,
     ).firstMatch(text);
 
-    if (labeled != null) return labeled.group(1);
+    if (labeled != null && _hasRealDigit(labeled.group(1)!)) {
+      final normalized = _normalizeOcrDigits(labeled.group(1)!);
+      if (RegExp(r'^\d{8,15}$').hasMatch(normalized)) return normalized;
+    }
 
-    final longestDigitRun = RegExp(r'\d{8,15}')
+    // Respaldo contextual: dígitos cerca de una palabra de contexto, para
+    // cuando la etiqueta y el número no quedaron pegados por el OCR.
+    final nearContext = RegExp(
+      r'(?:RMU|RPU|SERVICIO|CUENTA)[\s\S]{0,60}?(\d{8,15})',
+      caseSensitive: false,
+    ).firstMatch(text);
+
+    if (nearContext != null) return nearContext.group(1);
+
+    // Último respaldo, sin contexto: la racha de dígitos más larga dentro
+    // del rango típico de un RPU/RMU (10-12 dígitos), para no confundirlo
+    // con un código de barras u otro número largo no relacionado.
+    final digitRuns = RegExp(r'\d{10,12}')
         .allMatches(text)
         .map((match) => match.group(0)!)
         .toList();
 
-    if (longestDigitRun.isEmpty) return null;
+    if (digitRuns.isEmpty) return null;
 
-    longestDigitRun.sort((a, b) => b.length.compareTo(a.length));
-    return longestDigitRun.first;
+    digitRuns.sort((a, b) => b.length.compareTo(a.length));
+    return digitRuns.first;
   }
 
   static String? _findTariff(String text) {
+    // La lista fija de abajo no cubre tarifas domésticas simples como "01"
+    // o "1" (formato usado en muchos recibos residenciales reales), así que
+    // primero se intenta leer directamente lo que sigue a la etiqueta
+    // "Tarifa" (con o sin "aplicable" de por medio).
+    final labeled = RegExp(
+      r'TARIFA\s*(?:APLICABLE)?\s*[:\-]?\s*([A-Z0-9]{1,6})\b',
+      caseSensitive: false,
+    ).firstMatch(text);
+
+    if (labeled != null) return labeled.group(1)!.toUpperCase();
+
     final upperText = text.toUpperCase();
 
     for (final tariff in _knownTariffs) {
@@ -112,6 +168,40 @@ class CfeReceiptTextParser {
   }
 
   static double? _findKwh(String text) {
+    // Formato tabular estándar de CFE: la fila "Energía (kWh)" trae, en
+    // orden, lectura actual, lectura anterior y consumo del periodo. Esto es
+    // más confiable que buscar un número pegado a "kWh": en la tabla el
+    // consumo real casi nunca queda junto a esas letras, mientras que sí
+    // puede haber un "NNN kWh" suelto en texto informativo o en el consumo
+    // histórico de otros periodos que no es el que queremos.
+    final energyRow = RegExp(
+      r'ENERG[IÍ]A\s*\(?\s*K\s*W\s*H\s*\)?'
+      r'[\s\S]{0,20}?(\d{1,6})'
+      r'[\s\S]{0,20}?(\d{1,6})'
+      r'[\s\S]{0,20}?(\d{1,6})',
+      caseSensitive: false,
+    ).firstMatch(text);
+
+    if (energyRow != null) {
+      final total = double.tryParse(energyRow.group(3)!);
+      if (total != null) return total;
+    }
+
+    // Anclado a "Consumo" (ej. "Consumo del periodo", "Consumo total"), para
+    // no confundir el consumo real con una lectura anterior u otro número
+    // seguido de "kWh" en una tabla histórica.
+    final anchored = RegExp(
+      r'CONSUMO[\s\S]{0,25}?([\d,OoIiLlSsB]+(?:\.\d+)?)\s*k\s*w\s*h',
+      caseSensitive: false,
+    ).firstMatch(text);
+
+    if (anchored != null && _hasRealDigit(anchored.group(1)!)) {
+      final normalized =
+          _normalizeOcrDigits(anchored.group(1)!).replaceAll(',', '');
+      final value = double.tryParse(normalized);
+      if (value != null) return value;
+    }
+
     final match = RegExp(
       r'([\d,]+(?:\.\d+)?)\s*k\s*w\s*h',
       caseSensitive: false,
@@ -123,13 +213,21 @@ class CfeReceiptTextParser {
   }
 
   static double? _findTotalToPay(String text) {
+    // "\bTotal\b" (sin más palabras) cubre el formato de tabla "Desglose del
+    // importe a pagar" donde la fila simplemente dice "Total" seguido del
+    // importe en la siguiente línea. El límite de palabra evita que
+    // "Subtotal" (que contiene "total") dispare este mismo patrón.
     final labeled = RegExp(
-      r'Total\s*a?\s*Pagar\D{0,10}\$?\s*([\d,]+\.\d{2})',
+      r'(?:Total\s*a?\s*Pagar|Importe\s*Total|Total\s*del\s*Recibo|A\s*Pagar|\bTotal\b)'
+      r'\D{0,10}\$?\s*([\d,OoIiLlSsB]+\.\d{2})',
       caseSensitive: false,
     ).firstMatch(text);
 
-    if (labeled != null) {
-      return double.tryParse(labeled.group(1)!.replaceAll(',', ''));
+    if (labeled != null && _hasRealDigit(labeled.group(1)!)) {
+      final normalized =
+          _normalizeOcrDigits(labeled.group(1)!).replaceAll(',', '');
+      final value = double.tryParse(normalized);
+      if (value != null) return value;
     }
 
     final amounts = RegExp(r'\$\s*([\d,]+\.\d{2})')
@@ -152,9 +250,20 @@ class CfeReceiptTextParser {
     return line.isEmpty ? null : line;
   }
 
+  // "Av. Paseo de la Reforma 164, Col. Juárez" es el domicilio fiscal fijo
+  // de CFE que aparece impreso en todos los recibos (encabezado corporativo,
+  // no la dirección del cliente); se excluye para no confundirlo con la
+  // dirección real del servicio.
+  static const _addressBoilerplateExclusions = ['PASEO DE LA REFORMA'];
+
   static int? _findAddressLineIndex(List<String> lines) {
     for (var i = 0; i < lines.length; i++) {
       final upperLine = lines[i].toUpperCase();
+
+      final isBoilerplate = _addressBoilerplateExclusions
+          .any((phrase) => upperLine.contains(phrase));
+      if (isBoilerplate) continue;
+
       if (upperLine.contains('CALLE') ||
           upperLine.contains('AV.') ||
           upperLine.contains('AVENIDA') ||

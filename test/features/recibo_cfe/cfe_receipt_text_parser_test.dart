@@ -34,4 +34,105 @@ Total a pagar \$1,250.50
 
     expect(suggestion.tariff, equals('DAC'));
   });
+
+  test(
+      'extrae el kWh del "Consumo del periodo" y no una lectura anterior '
+      'con kWh que aparece antes en el texto', () {
+    const rawText = '''
+Lectura anterior 120 kWh
+Consumo del periodo: 385 kWh
+''';
+
+    final suggestion = CfeReceiptTextParser.parse(rawText);
+
+    expect(suggestion.currentPeriodKwh, equals(385));
+  });
+
+  test(
+      'extrae el RPU correcto cuando hay también un número de teléfono '
+      'de 10 dígitos en el recibo', () {
+    const rawText = '''
+Tel. de contacto 5512345678
+RPU 987654321098
+''';
+
+    final suggestion = CfeReceiptTextParser.parse(rawText);
+
+    expect(suggestion.rpu, equals('987654321098'));
+  });
+
+  test('extrae el total con la etiqueta "Importe Total" además de "Total a Pagar"', () {
+    final suggestion =
+        CfeReceiptTextParser.parse('Importe Total \$980.75');
+
+    expect(suggestion.totalToPay, equals(980.75));
+  });
+
+  test(
+      'corrige confusiones típicas de OCR (letra por dígito) dentro del '
+      'RPU y el total detectados', () {
+    final suggestion = CfeReceiptTextParser.parse(
+      'RMU 12345678O012\nTotal a pagar \$1,25O.50',
+    );
+
+    expect(suggestion.rpu, equals('123456780012'));
+    expect(suggestion.totalToPay, equals(1250.50));
+  });
+
+  test(
+      'recibo con layout de tabla real (tarifa "01", fila "Energía (kWh)" '
+      'y tabla de "Consumo histórico" con datos señuelo) extrae los datos '
+      'correctos, no los señuelos', () {
+    const rawText = '''
+Comisión Federal de Electricidad
+Av. Paseo de la Reforma 164, Col. Juárez,
+NO. DE SERVICIO : 096990551259
+TARIFA: 01
+PERIODO FACTURADO: 12 ENE 26 - 11 MAR 26
+Concepto
+Lectura actual
+Lectura anterior
+Total
+periodo
+Energía (kWh)
+17013
+16748
+265
+Subtotal
+(MXN)
+Desglose del importe a pagar
+Concepto
+Importe (MXN)
+Energía
+322.55
+Total
+\$404.98
+CONSUMO HISTÓRICO
+Periodo
+kWh
+Importe
+del 10 NOV 25 al 12 ENE 26
+285
+\$453.00
+Su consumo está dentro del rango INTERMEDIO, mayor a 150 y menor a 280 kWh.
+''';
+
+    final suggestion = CfeReceiptTextParser.parse(rawText);
+
+    // La tarifa "01" (formato doméstico simple) no está en la lista fija.
+    expect(suggestion.tariff, equals('01'));
+
+    // 265 es el consumo real de la fila "Energía (kWh)"; 285 (tabla
+    // histórica) y 280 (texto informativo) son señuelos con "kWh" más
+    // cerca en el texto plano.
+    expect(suggestion.currentPeriodKwh, equals(265));
+
+    // 404.98 es el total real ("Total" solo, no "Subtotal"); 453.00 es un
+    // importe más grande pero de un periodo histórico anterior.
+    expect(suggestion.totalToPay, equals(404.98));
+
+    // La dirección corporativa fija de CFE nunca debe tomarse como la
+    // dirección del servicio del cliente.
+    expect(suggestion.serviceAddress, isNot(contains('PASEO DE LA REFORMA')));
+  });
 }

@@ -145,7 +145,7 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
 
     final frontImage = await _imagePicker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 85,
+      imageQuality: 100,
     );
 
     if (frontImage == null) return;
@@ -158,7 +158,7 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
     if (captureBackSide) {
       backImage = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        imageQuality: 100,
       );
     }
 
@@ -253,7 +253,7 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
   Future<void> _pickFromGallery() async {
     final pickedImage = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 90,
+      imageQuality: 100,
     );
 
     if (pickedImage == null) return;
@@ -323,7 +323,8 @@ class _ReciboCfeScreenState extends ConsumerState<ReciboCfeScreen> {
 
       final mimeType = forcedMimeType ?? _guessMimeType(saved.fileName);
 
-      if (mimeType != null && mimeType.startsWith('image/')) {
+      if (mimeType != null &&
+          (mimeType.startsWith('image/') || mimeType == 'application/pdf')) {
         await _runOcrSuggestion(saved.localPath);
       }
 
