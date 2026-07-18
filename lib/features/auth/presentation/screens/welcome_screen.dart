@@ -23,7 +23,7 @@ class WelcomeScreen extends StatelessWidget {
               const Spacer(),
               Center(
                 child: Image.asset(
-                  AppAssets.macbecLogoTransparent,
+                  AppAssets.macbecLogo,
                   width: 260,
                   fit: BoxFit.contain,
                   semanticLabel: AppConstants.companyName,

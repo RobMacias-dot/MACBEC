@@ -1,24 +1,15 @@
 ##############################
-# Python (general)
+# Flutter / Dart
 ##############################
-__pycache__/
-*.py[cod]
-*$py.class
-
-##############################
-# Entornos virtuales
-##############################
-.venv/
-venv/
-env/
-ENV/
-
-##############################
-# Pytest / coverage
-##############################
-.pytest_cache/
-.coverage
-htmlcov/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.g.dart
+*.freezed.dart
 
 ##############################
 # IDEs / Editors
@@ -35,57 +26,49 @@ Thumbs.db
 desktop.ini
 
 ##############################
-# Build / dist
+# Datos y logs locales de la app
 ##############################
-build/
-dist/
-*.egg-info/
-
-##############################
-# Extractor Solar – salidas
-##############################
-solar-extractor/build/
-solar-extractor/output/
-solar-extractor/results/
-
-# CSV / JSON generados automáticamente
-solar-extractor/*.csv
-solar-extractor/*.json
-
-##############################
-# PDFs de entrada (pesados)
-##############################
-solar-extractor/PDFS/
-*.pdf
-
-##############################
-# OCR / OpenCV temporales
-##############################
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
 *.log
+
+##############################
+# Python (herramienta solar_extractor)
+##############################
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+
+##############################
+# Extractor Solar - salidas locales
+##############################
+tools/solar_extractor/build/
+tools/solar_extractor/output/
+tools/solar_extractor/results/
+
+##############################
+# Temporales
+##############################
 *.tmp
 *.bak
 *.cache
-
-##############################
-# Imágenes temporales OCR
-##############################
-*.jpg
-*.jpeg
-*.png
-*.tiff
-*.bmp
-
-##############################
-# Documentación comercial
-##############################
-*.docx
-*.pptx
-*.xlsx
-
-# Temporales de Office
 ~$*.docx
 ~$*.xlsx
 ~$*.pptx
+tmp/
 
 ##############################
 # Seguridad
@@ -94,53 +77,3 @@ solar-extractor/PDFS/
 .env.*
 *.key
 *.pem
-##############################
-# Branding / Logos MacBec
-##############################
-Logo.jpg
-Logo Final.jpeg
-Logo FINALL.jpg
-
-# Variantes comunes
-logo.jpg
-logo.png
-logo*.jpg
-logo*.png
-
-##############################
-# Recursos gráficos pesados
-##############################
-assets/logos/
-assets/images/
-branding/
-=======
-# Flutter/Dart
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-build/
-
-# Generated files
-*.g.dart
-*.freezed.dart
-
-# IDE
-.idea/
-.vscode/
-*.iml
-
-# OS
-.DS_Store
-Thumbs.db
-
-# App private/generated runtime files
-*.sqlite
-*.sqlite-wal
-*.sqlite-shm
-*.db
-*.db-wal
-*.db-shm
-*.log

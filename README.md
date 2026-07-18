@@ -144,7 +144,8 @@ macbec_solar_app/
       seleccion_tecnica/
     shared/
   assets/
-    branding/
+    images/
+      logo/
     seeds/
   docs/
     planning/

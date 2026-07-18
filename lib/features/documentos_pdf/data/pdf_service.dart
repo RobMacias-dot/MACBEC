@@ -780,7 +780,7 @@ class PdfService {
   double _max(double a, double b) => a > b ? a : b;
 
   Future<pw.MemoryImage> _loadLogo() async {
-    final logoBytes = await rootBundle.load(AppAssets.macbecLogoTransparent);
+    final logoBytes = await rootBundle.load(AppAssets.macbecLogo);
     return pw.MemoryImage(logoBytes.buffer.asUint8List());
   }
 

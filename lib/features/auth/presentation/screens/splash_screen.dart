@@ -101,7 +101,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               );
             },
             child: Image.asset(
-              AppAssets.macbecLogoTransparent,
+              AppAssets.macbecLogo,
               width: 280,
               fit: BoxFit.contain,
               semanticLabel: AppConstants.companyName,
