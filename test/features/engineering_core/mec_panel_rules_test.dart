@@ -3,7 +3,7 @@ import 'package:macbec_solar_app/features/engineering_core/domain/mec_models.dar
 import 'package:macbec_solar_app/features/engineering_core/domain/mec_panel_rules.dart';
 
 void main() {
-  const jinko = MecPanelSpecification(
+  final jinko = MecPanelSpecification.legacy(
     panelId: 'mec-jinko-66hl4m-bdv',
     manufacturer: 'Jinko Solar',
     model: '66HL4M-BDV',
@@ -18,14 +18,14 @@ void main() {
   );
 
   MecStringAssessment assess({
-    MecPanelSpecification panel = jinko,
+    MecPanelSpecification? panel,
     int modulesPerString = 20,
     int parallelStrings = 2,
     int moduleCount = 40,
     double minimumTemperatureCelsius = -10,
   }) =>
       MecPanelRules.assessString(
-        panel: panel,
+        panel: panel ?? jinko,
         modulesPerString: modulesPerString,
         parallelStrings: parallelStrings,
         moduleCount: moduleCount,
@@ -72,7 +72,7 @@ void main() {
   });
 
   test('rechaza cálculo de Voc frío cuando falta el coeficiente', () {
-    const withoutCoefficient = MecPanelSpecification(
+    final withoutCoefficient = MecPanelSpecification.legacy(
       panelId: 'missing-coefficient',
       manufacturer: 'Test',
       model: 'Missing',
