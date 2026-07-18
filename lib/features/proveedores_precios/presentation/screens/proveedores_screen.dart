@@ -11,32 +11,32 @@ class ProveedoresScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Actualizar precios',
+      title: 'MEC',
       child: ListView(
         children: [
           SectionCard(
-            title: '¿Cómo quieres actualizar?',
+            title: 'Modelo de Ingeniería y Catálogo',
             subtitle:
                 'Puedes cargar el Excel estándar completo o preparar el análisis de un producto individual desde su datasheet.',
             child: Column(
               children: [
                 _UpdateOptionCard(
-                  icon: Icons.table_chart_outlined,
-                  title: 'Cargar Excel estándar',
+                  icon: Icons.inventory_2_outlined,
+                  title: 'Catálogo comercial',
                   description:
                       'Actualiza el catálogo comercial usando la plantilla de importación: '
                       'paneles, inversores, estructura, protecciones, material eléctrico, '
                       'tubería/cable y mano de obra.',
-                  buttonLabel: 'Seleccionar Excel',
+                  buttonLabel: 'Gestionar catálogo',
                   onTap: () => context.go(AppRoutes.importacionCatalogo),
                 ),
                 const SizedBox(height: 12),
                 _UpdateOptionCard(
                   icon: Icons.description_outlined,
-                  title: 'Por producto / datasheet',
+                  title: 'Fichas técnicas PDF',
                   description:
-                      'Prepara el análisis individual de un panel o inversor desde su ficha técnica. Esta base servirá para extracción automática de datos técnicos.',
-                  buttonLabel: 'Analizar producto',
+                      'Carga múltiples datasheets de paneles e inversores. El MEC conserva su archivo, huella y estado de revisión antes de habilitarlo para cálculos.',
+                  buttonLabel: 'Cargar fichas PDF',
                   onTap: () => context.go(AppRoutes.analisisProductoCatalogo),
                 ),
               ],

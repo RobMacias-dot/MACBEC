@@ -69,4 +69,25 @@ class MecRepository {
           ..where((row) => row.productRevisionId.equals(revision.id)))
         .getSingleOrNull();
   }
+
+  Future<TechnicalInverterRevision> saveInverterRevision(
+    TechnicalInverterRevisionsCompanion revision,
+  ) async {
+    await (_database.update(_database.technicalInverterRevisions)
+          ..where((row) => row.inverterId.equals(revision.inverterId.value)))
+        .write(
+      const TechnicalInverterRevisionsCompanion(isCurrent: Value(false)),
+    );
+    return _database
+        .into(_database.technicalInverterRevisions)
+        .insertReturning(revision);
+  }
+
+  Future<InverterTechnicalSpecification> saveInverterSpecification(
+    InverterTechnicalSpecificationsCompanion specification,
+  ) {
+    return _database
+        .into(_database.inverterTechnicalSpecifications)
+        .insertReturning(specification);
+  }
 }

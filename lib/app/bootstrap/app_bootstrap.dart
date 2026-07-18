@@ -1,5 +1,6 @@
 import '../../data/local/database/app_database.dart';
 import '../../features/engineering_core/data/jinko_66hl4m_bdv_seed.dart';
+import '../../features/engineering_core/data/mec_initial_catalog_seed.dart';
 
 class AppBootstrap {
   const AppBootstrap._();
@@ -18,6 +19,7 @@ class AppBootstrap {
     final database = AppDatabase();
     try {
       await Jinko66hl4mBdvSeed.ensureSeeded(database);
+      await MecInitialCatalogSeed.ensureSeeded(database);
     } finally {
       await database.close();
     }

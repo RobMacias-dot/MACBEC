@@ -1,6 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' show OrderingTerm;
 
+import '../../../../data/local/database/app_database.dart';
+import '../../../engineering_core/data/mec_document_importer.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 
@@ -12,22 +15,38 @@ class AnalisisProductoScreen extends StatefulWidget {
 }
 
 class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
-  _ProductType _selectedProductType = _ProductType.panel;
+  final _database = AppDatabase();
+  MecImportedProductType _selectedProductType = MecImportedProductType.panel;
   String? _selectedFileName;
+  List<TechnicalDocument> _documents = const [];
+  bool _isImporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDocuments();
+  }
+
+  @override
+  void dispose() {
+    _database.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Analizar producto',
+      title: 'MEC - fichas técnicas',
       child: ListView(
         children: [
           SectionCard(
-            title: 'Producto individual',
-            subtitle: 'Carga la ficha técnica correspondiente al producto.',
+            title: 'Agregar documento técnico',
+            subtitle:
+                'El PDF se guarda localmente con una huella SHA-256 y queda listo para su revisión MEC.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DropdownButtonFormField<_ProductType>(
+                DropdownButtonFormField<MecImportedProductType>(
                   initialValue: _selectedProductType,
                   decoration: const InputDecoration(
                     labelText: 'Tipo de producto',
@@ -35,11 +54,11 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
                   ),
                   items: const [
                     DropdownMenuItem(
-                      value: _ProductType.panel,
+                      value: MecImportedProductType.panel,
                       child: Text('Panel solar'),
                     ),
                     DropdownMenuItem(
-                      value: _ProductType.inverter,
+                      value: MecImportedProductType.inverter,
                       child: Text('Inversor'),
                     ),
                   ],
@@ -55,9 +74,11 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _pickDatasheet,
+                    onPressed: _isImporting ? null : _pickDatasheet,
                     icon: const Icon(Icons.upload_file_outlined),
-                    label: const Text('Seleccionar datasheet PDF'),
+                    label: Text(_isImporting
+                        ? 'Guardando PDF...'
+                        : 'Seleccionar datasheet PDF'),
                   ),
                 ),
                 if (_selectedFileName != null) ...[
@@ -72,12 +93,13 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
           ),
           const SizedBox(height: 16),
           SectionCard(
-            title: 'Campos que se analizarán',
-            subtitle: 'Selecciona un archivo para asociarlo al producto.',
+            title: 'Revisión y trazabilidad',
+            subtitle:
+                'Los documentos recién cargados quedan como pendientes de revisión: ningún valor se usa para dimensionar hasta confirmarlo.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_selectedProductType == _ProductType.panel) ...[
+                if (_selectedProductType == MecImportedProductType.panel) ...[
                   const _InfoRow(
                     icon: Icons.solar_power_outlined,
                     text:
@@ -99,6 +121,36 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          SectionCard(
+            title: 'Documentos cargados',
+            subtitle:
+                '${_documents.length} ficha(s) técnica(s) registrada(s) en el MEC.',
+            child: _documents.isEmpty
+                ? const _InfoRow(
+                    icon: Icons.folder_open_outlined,
+                    text: 'Aún no hay PDFs cargados manualmente.',
+                  )
+                : Column(
+                    children: _documents
+                        .take(8)
+                        .map((document) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading:
+                                  const Icon(Icons.picture_as_pdf_outlined),
+                              title: Text(document.fileName),
+                              subtitle: Text(document.verificationStatus ==
+                                      'confirmed_datasheet'
+                                  ? 'Ficha confirmada'
+                                  : 'Pendiente de revisión'),
+                              trailing: Icon(document.verificationStatus ==
+                                      'confirmed_datasheet'
+                                  ? Icons.verified_outlined
+                                  : Icons.pending_outlined),
+                            ))
+                        .toList(),
+                  ),
+          ),
         ],
       ),
     );
@@ -115,25 +167,39 @@ class _AnalisisProductoScreenState extends State<AnalisisProductoScreen> {
       return;
     }
 
-    setState(() {
-      _selectedFileName = result.files.single.name;
-    });
+    final sourcePath = result.files.single.path;
+    if (sourcePath == null) return;
+
+    setState(() => _isImporting = true);
+    try {
+      final document = await MecDocumentImporter(_database).importPdf(
+        sourcePath: sourcePath,
+        productType: _selectedProductType,
+      );
+      if (!mounted) return;
+      setState(() => _selectedFileName = document.fileName);
+      await _loadDocuments();
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
 
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Ficha técnica cargada correctamente.',
+          'Ficha técnica guardada en el MEC. Revísala y vincúlala al producto antes de usarla.',
         ),
       ),
     );
   }
-}
 
-enum _ProductType {
-  panel,
-  inverter,
+  Future<void> _loadDocuments() async {
+    final documents = await (_database.select(_database.technicalDocuments)
+          ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]))
+        .get();
+    if (mounted) setState(() => _documents = documents);
+  }
 }
 
 class _InfoRow extends StatelessWidget {

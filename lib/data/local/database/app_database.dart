@@ -305,6 +305,41 @@ class PanelTechnicalSpecifications extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+/// Revisión inmutable de la ficha técnica de un inversor del catálogo.
+class TechnicalInverterRevisions extends Table with LocalFirstColumns {
+  TextColumn get inverterId => text().references(Inverters, #id)();
+  TextColumn get revisionCode => text()();
+  TextColumn get sourceDocumentId =>
+      text().nullable().references(TechnicalDocuments, #id)();
+  TextColumn get verificationStatus => text()();
+  TextColumn get confidenceLevel => text()();
+  BoolColumn get isCurrent => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get effectiveAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Datos extendidos de inversor que conservan el alcance de la ficha fuente.
+class InverterTechnicalSpecifications extends Table with LocalFirstColumns {
+  TextColumn get productRevisionId =>
+      text().references(TechnicalInverterRevisions, #id)();
+  RealColumn get mpptMinVoltage => real().nullable()();
+  RealColumn get mpptMaxVoltage => real().nullable()();
+  RealColumn get startupVoltage => real().nullable()();
+  RealColumn get nominalDcVoltage => real().nullable()();
+  RealColumn get maxInputCurrentPerMppt => real().nullable()();
+  IntColumn get stringsPerMppt => integer().nullable()();
+  RealColumn get maxEfficiencyPercent => real().nullable()();
+  TextColumn get gridConnection => text().nullable()();
+  TextColumn get protectionRating => text().nullable()();
+  RealColumn get weightKg => real().nullable()();
+  TextColumn get specificationJson => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Compatibilidades técnicas entre productos usando sus claves de catálogo.
 class TechnicalProductCompatibilities extends Table with LocalFirstColumns {
   @ReferenceName('sourcePanelCompatibilities')
@@ -678,6 +713,8 @@ class SyncQueue extends Table with LocalFirstColumns {
     TechnicalProductRevisions,
     TechnicalFieldEvidence,
     PanelTechnicalSpecifications,
+    TechnicalInverterRevisions,
+    InverterTechnicalSpecifications,
     TechnicalProductCompatibilities,
     Inverters,
     Cables,
@@ -704,7 +741,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -865,6 +902,10 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(technicalFieldEvidence);
             await m.createTable(panelTechnicalSpecifications);
             await m.createTable(technicalProductCompatibilities);
+          }
+          if (from < 21) {
+            await m.createTable(technicalInverterRevisions);
+            await m.createTable(inverterTechnicalSpecifications);
           }
         },
       );

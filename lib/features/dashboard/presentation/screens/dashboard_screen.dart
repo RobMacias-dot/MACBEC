@@ -51,7 +51,7 @@ class DashboardScreen extends ConsumerWidget {
                   onTap: () => context.go(AppRoutes.configuracion),
                 ),
                 _DashboardButton(
-                  label: 'Actualizar precios',
+                  label: 'MEC',
                   icon: Icons.upload_file_outlined,
                   onTap: () => context.go(AppRoutes.proveedores),
                 ),
