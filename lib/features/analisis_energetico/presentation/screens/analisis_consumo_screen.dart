@@ -144,7 +144,14 @@ class _AnalisisConsumoScreenState extends ConsumerState<AnalisisConsumoScreen> {
                           key: _formKey,
                           child: Column(
                             children: [
-                              if (draft.cfeCurrentPeriodKwh != null) ...[
+                              if (savedConsumptions.length > 1) ...[
+                                _HistoricalConsumptionsNotice(
+                                  periodsCount: savedConsumptions.length,
+                                  onReplicate: _replicateFirstConsumption,
+                                ),
+                                const SizedBox(height: 14),
+                              ] else if (draft.cfeCurrentPeriodKwh !=
+                                  null) ...[
                                 _ImportedConsumptionNotice(
                                   kwh: draft.cfeCurrentPeriodKwh!,
                                   billingPeriod: draft.cfeBillingPeriod,
@@ -870,6 +877,44 @@ class _ImportedConsumptionNotice extends StatelessWidget {
           onPressed: onReplicate,
           icon: const Icon(Icons.copy_all_outlined),
           label: const Text('Replicar en los 6 periodos'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Se muestra cuando ya hay varios periodos reales (del recibo CFE, tabla
+/// de consumo histórico) precargados. A diferencia de
+/// [_ImportedConsumptionNotice], aquí "Replicar" no llena huecos: sustituye
+/// el detalle real por una estimación general, así que se dejan ambas
+/// opciones claras para que el instalador elija.
+class _HistoricalConsumptionsNotice extends StatelessWidget {
+  const _HistoricalConsumptionsNotice({
+    required this.periodsCount,
+    required this.onReplicate,
+  });
+
+  final int periodsCount;
+  final VoidCallback onReplicate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _InfoRow(
+          icon: Icons.electric_meter_outlined,
+          text:
+              'Se precargaron $periodsCount periodos con el consumo real '
+              'de tu recibo CFE (actual + historial). Puedes dejarlos así '
+              'para un cálculo más preciso, o reemplazarlos por una '
+              'estimación general.',
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: onReplicate,
+          icon: const Icon(Icons.copy_all_outlined),
+          label: const Text('Reemplazar por estimación general (replicar)'),
         ),
       ],
     );

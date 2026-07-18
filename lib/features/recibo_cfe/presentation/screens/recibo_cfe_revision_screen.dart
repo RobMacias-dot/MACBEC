@@ -10,6 +10,8 @@ import '../../../../shared/widgets/document_preview.dart';
 import '../../../../shared/widgets/section_card.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../analisis_energetico/application/energy_analysis_controller.dart';
+import '../../../analisis_energetico/domain/entities/quotation_draft_consumption.dart';
 import '../../../cotizaciones/application/quotation_draft_controller.dart';
 import '../../../cotizaciones/data/quotation_draft_repository.dart';
 import '../../../cotizaciones/domain/entities/quotation_draft.dart';
@@ -597,6 +599,15 @@ class _ReciboCfeRevisionScreenState
             step: QuotationDraftStep.cfeReview,
           );
 
+      final ocrSuggestion = ref.read(cfeOcrSuggestionProvider);
+      if (ocrSuggestion != null && ocrSuggestion.historicalPeriods.isNotEmpty) {
+        await _seedHistoricalConsumptionsIfEmpty(
+          activeDraftId,
+          ocrSuggestion,
+          currentPeriodKwh: currentPeriodKwh,
+        );
+      }
+
       ref.invalidate(quotationDraftsControllerProvider);
       ref.read(cfeOcrSuggestionProvider.notifier).state = null;
 
@@ -623,6 +634,58 @@ class _ReciboCfeRevisionScreenState
           _isSaving = false;
         });
       }
+    }
+  }
+
+  /// Precarga hasta 6 periodos de consumo reales (el actual + los más
+  /// recientes de la tabla "Consumo histórico" del recibo) en el análisis
+  /// energético, para que el instalador no tenga que teclearlos a mano.
+  ///
+  /// Solo se hace si el borrador todavía no tiene consumos guardados: no se
+  /// pisa lo que el instalador ya haya capturado o ajustado a mano (incluido
+  /// el botón "Replicar", que sigue disponible sin cambios en esa pantalla).
+  Future<void> _seedHistoricalConsumptionsIfEmpty(
+    String draftId,
+    CfeReceiptOcrSuggestion suggestion, {
+    required double currentPeriodKwh,
+  }) async {
+    try {
+      final repository = ref.read(energyAnalysisRepositoryProvider);
+      final existing = await repository.getDraftConsumptions(draftId);
+      if (existing.isNotEmpty) return;
+
+      final billingPeriod = _billingPeriodController.text.trim();
+      final consumptions = <SaveQuotationDraftConsumptionInput>[
+        SaveQuotationDraftConsumptionInput(
+          periodLabel: billingPeriod.isEmpty ? 'Periodo actual' : billingPeriod,
+          kwh: currentPeriodKwh,
+          sortOrder: 0,
+        ),
+      ];
+
+      const remainingSlots = 5;
+      for (var i = 0;
+          i < suggestion.historicalPeriods.length && i < remainingSlots;
+          i++) {
+        final period = suggestion.historicalPeriods[i];
+        consumptions.add(
+          SaveQuotationDraftConsumptionInput(
+            periodLabel: period.periodLabel,
+            kwh: period.kwh,
+            sortOrder: i + 1,
+          ),
+        );
+      }
+
+      await repository.replaceDraftConsumptions(
+        quotationDraftId: draftId,
+        consumptions: consumptions,
+      );
+
+      ref.invalidate(quotationDraftConsumptionsProvider(draftId));
+    } catch (_) {
+      // Es una ayuda opcional: si falla, el instalador sigue capturando los
+      // consumos a mano en la pantalla de análisis energético.
     }
   }
 

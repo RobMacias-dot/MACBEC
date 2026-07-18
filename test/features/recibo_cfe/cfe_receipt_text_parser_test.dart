@@ -134,5 +134,43 @@ Su consumo está dentro del rango INTERMEDIO, mayor a 150 y menor a 280 kWh.
     // La dirección corporativa fija de CFE nunca debe tomarse como la
     // dirección del servicio del cliente.
     expect(suggestion.serviceAddress, isNot(contains('PASEO DE LA REFORMA')));
+
+    expect(suggestion.historicalPeriods, hasLength(1));
+    expect(
+      suggestion.historicalPeriods.single.periodLabel,
+      equals('10 NOV 25 - 12 ENE 26'),
+    );
+    expect(suggestion.historicalPeriods.single.kwh, equals(285));
+  });
+
+  test(
+      'extrae varios periodos de la tabla "Consumo histórico" en orden, '
+      'del más reciente al más antiguo', () {
+    const rawText = '''
+CONSUMO HISTÓRICO
+Periodo
+kWh
+Importe
+del 10 NOV 25 al 12 ENE 26
+285
+\$453.00
+del 10 SEP 25 al 10 NOV 25
+268
+\$404.00
+del 14 JUL 25 al 10 SEP 25
+270
+\$405.00
+''';
+
+    final suggestion = CfeReceiptTextParser.parse(rawText);
+
+    expect(suggestion.historicalPeriods, hasLength(3));
+    expect(suggestion.historicalPeriods[0].kwh, equals(285));
+    expect(suggestion.historicalPeriods[1].kwh, equals(268));
+    expect(suggestion.historicalPeriods[2].kwh, equals(270));
+    expect(
+      suggestion.historicalPeriods[0].periodLabel,
+      equals('10 NOV 25 - 12 ENE 26'),
+    );
   });
 }

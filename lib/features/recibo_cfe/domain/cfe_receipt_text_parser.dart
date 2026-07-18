@@ -7,6 +7,7 @@ class CfeReceiptOcrSuggestion {
     this.billingPeriod,
     this.currentPeriodKwh,
     this.totalToPay,
+    this.historicalPeriods = const [],
   });
 
   final String? holderName;
@@ -17,6 +18,11 @@ class CfeReceiptOcrSuggestion {
   final double? currentPeriodKwh;
   final double? totalToPay;
 
+  /// Periodos de la tabla "Consumo histórico" (reverso del recibo CFE), del
+  /// más reciente al más antiguo. Sirve para precargar varios periodos de
+  /// consumo reales en el análisis energético en vez de solo el actual.
+  final List<CfeHistoricalPeriodSuggestion> historicalPeriods;
+
   bool get isEmpty =>
       holderName == null &&
       serviceAddress == null &&
@@ -24,7 +30,18 @@ class CfeReceiptOcrSuggestion {
       tariff == null &&
       billingPeriod == null &&
       currentPeriodKwh == null &&
-      totalToPay == null;
+      totalToPay == null &&
+      historicalPeriods.isEmpty;
+}
+
+class CfeHistoricalPeriodSuggestion {
+  const CfeHistoricalPeriodSuggestion({
+    required this.periodLabel,
+    required this.kwh,
+  });
+
+  final String periodLabel;
+  final double kwh;
 }
 
 /// Heurísticas simples para sugerir datos del recibo CFE a partir del texto
@@ -64,6 +81,7 @@ class CfeReceiptTextParser {
       billingPeriod: _findBillingPeriod(normalized),
       currentPeriodKwh: _findKwh(normalized),
       totalToPay: _findTotalToPay(normalized),
+      historicalPeriods: _findHistoricalPeriods(normalized),
     );
   }
 
@@ -165,6 +183,37 @@ class CfeReceiptTextParser {
     if (rangeMatch == null) return null;
 
     return '${rangeMatch.group(1)?.trim()} - ${rangeMatch.group(2)?.trim()}';
+  }
+
+  // Filas de la tabla "Consumo histórico" del reverso del recibo CFE, con
+  // forma "del D MES AA al D MES AA | kWh | Importe | Pagos". Se listan del
+  // periodo más reciente al más antiguo, que es como CFE las imprime.
+  static List<CfeHistoricalPeriodSuggestion> _findHistoricalPeriods(
+    String text,
+  ) {
+    const months = 'ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC';
+    const datePattern = r'\d{1,2}\s*(?:' + months + r')\.?\s*\d{2,4}';
+
+    final rowPattern = RegExp(
+      'del\\s+($datePattern)\\s*al\\.?\\s*($datePattern)'
+      r'[\s\S]{0,12}?(\d{1,4})(?:\.\d+)?\b',
+      caseSensitive: false,
+    );
+
+    final periods = <CfeHistoricalPeriodSuggestion>[];
+
+    for (final match in rowPattern.allMatches(text)) {
+      final kwh = double.tryParse(match.group(3)!);
+      if (kwh == null || kwh <= 0) continue;
+
+      final from = match.group(1)!.trim().toUpperCase();
+      final to = match.group(2)!.trim().toUpperCase();
+      periods.add(
+        CfeHistoricalPeriodSuggestion(periodLabel: '$from - $to', kwh: kwh),
+      );
+    }
+
+    return periods;
   }
 
   static double? _findKwh(String text) {
