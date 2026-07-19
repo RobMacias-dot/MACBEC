@@ -29,6 +29,7 @@ import '../../features/expediente/presentation/screens/expediente_proyecto_scree
 import '../../features/expediente/presentation/screens/expediente_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/analisis_producto_screen.dart';
 import '../../features/proveedores_precios/presentation/screens/proveedores_screen.dart';
+import '../../features/engineering_core/presentation/screens/mec_product_manager_screen.dart';
 import '../../features/prefactura/presentation/screens/prefactura_screen.dart';
 import '../../features/proyectos/presentation/screens/proyecto_detalle_screen.dart';
 import '../../features/proyectos/presentation/screens/proyecto_form_screen.dart'
@@ -138,6 +139,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.proveedores,
         builder: (context, state) => const ProveedoresScreen(),
       ),
+      GoRoute(
+          path: AppRoutes.mecProductManager,
+          builder: (context, state) => const MecProductManagerScreen()),
       GoRoute(
         path: AppRoutes.importacionCatalogo,
         builder: (context, state) => const CatalogoImportacionScreen(),

@@ -29,6 +29,7 @@ class AppRoutes {
   static const analisisProductoCatalogo = '/catalogo/analisis-producto';
 
   static const proveedores = '/proveedores';
+  static const mecProductManager = '/mec/productos';
 
   static const cotizacion = '/cotizacion';
   static const cotizacionProspectoForm = '/cotizacion/prospecto-form';

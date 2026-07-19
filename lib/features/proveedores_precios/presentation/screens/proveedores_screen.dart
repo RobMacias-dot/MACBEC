@@ -22,6 +22,15 @@ class ProveedoresScreen extends StatelessWidget {
               children: [
                 _UpdateOptionCard(
                   icon: Icons.inventory_2_outlined,
+                  title: 'Administrador de productos',
+                  description:
+                      'Consulta productos MEC y actualiza proveedores, precios y disponibilidad sin modificar su información técnica.',
+                  buttonLabel: 'Administrar productos',
+                  onTap: () => context.go(AppRoutes.mecProductManager),
+                ),
+                const SizedBox(height: 12),
+                _UpdateOptionCard(
+                  icon: Icons.inventory_2_outlined,
                   title: 'Catálogo comercial',
                   description:
                       'Actualiza el catálogo comercial usando la plantilla de importación: '

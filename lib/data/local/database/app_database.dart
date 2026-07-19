@@ -199,9 +199,31 @@ class Suppliers extends Table with LocalFirstColumns {
   Set<Column> get primaryKey => {id};
 }
 
+/// Una oferta es comercial y nunca modifica la ficha técnica del producto.
+/// productType es `panel` o `inverter`; se conserva así para reutilizar los
+/// catálogos existentes sin introducir una entidad técnica duplicada.
+class CommercialOffers extends Table with LocalFirstColumns {
+  TextColumn get productType => text()();
+  TextColumn get productId => text()();
+  TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
+  TextColumn get supplierName => text().nullable()();
+  TextColumn get supplierSku => text().nullable()();
+  RealColumn get price => real().nullable()();
+  TextColumn get currency => text().withDefault(const Constant('MXN'))();
+  BoolColumn get vatIncluded => boolean().withDefault(const Constant(false))();
+  BoolColumn get available => boolean().withDefault(const Constant(true))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get priceDate => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class Panels extends Table with LocalFirstColumns {
   TextColumn get brand => text()();
   TextColumn get model => text()();
+  TextColumn get description => text().nullable()();
   RealColumn get powerWatts => real()();
 
   RealColumn get voc => real().nullable()();
@@ -361,6 +383,7 @@ class TechnicalProductCompatibilities extends Table with LocalFirstColumns {
 class Inverters extends Table with LocalFirstColumns {
   TextColumn get brand => text()();
   TextColumn get model => text()();
+  TextColumn get description => text().nullable()();
   RealColumn get nominalPowerWatts => real()();
   RealColumn get maxPvPowerWatts => real().nullable()();
   RealColumn get maxDcVoltage => real().nullable()();
@@ -708,6 +731,7 @@ class SyncQueue extends Table with LocalFirstColumns {
     QuotationDraftConsumptions,
     QuotationDraftPvCalculations,
     Suppliers,
+    CommercialOffers,
     Panels,
     TechnicalDocuments,
     TechnicalProductRevisions,
@@ -741,7 +765,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -907,6 +931,76 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(technicalInverterRevisions);
             await m.createTable(inverterTechnicalSpecifications);
           }
+          if (from < 22) {
+            await m.createTable(commercialOffers);
+            // Transición idempotente: solo crea la oferta histórica cuando
+            // aún no existe una oferta equivalente para el producto.
+            await _migrateLegacyCommercialOffers();
+          }
+          if (from < 23) {
+            await m.addColumn(panels, panels.description);
+            await m.addColumn(inverters, inverters.description);
+          }
         },
       );
+
+  Future<void> _migrateLegacyCommercialOffers() async {
+    await transaction(() async {
+      final panelsWithPrice = await (select(panels)
+            ..where((row) => row.purchasePrice.isNotNull()))
+          .get();
+      for (final panel in panelsWithPrice) {
+        await _insertLegacyOfferIfMissing(
+          productType: 'panel',
+          productId: panel.id,
+          supplierId: panel.supplierId,
+          price: panel.purchasePrice,
+          priceDate: panel.lastPriceUpdateAt,
+          notes: panel.priceSource,
+        );
+      }
+      final invertersWithPrice = await (select(inverters)
+            ..where((row) => row.purchasePrice.isNotNull()))
+          .get();
+      for (final inverter in invertersWithPrice) {
+        await _insertLegacyOfferIfMissing(
+          productType: 'inverter',
+          productId: inverter.id,
+          supplierId: inverter.supplierId,
+          price: inverter.purchasePrice,
+          priceDate: inverter.lastPriceUpdateAt,
+          notes: inverter.priceSource,
+        );
+      }
+    });
+  }
+
+  Future<void> _insertLegacyOfferIfMissing({
+    required String productType,
+    required String productId,
+    required String? supplierId,
+    required double? price,
+    required DateTime? priceDate,
+    required String? notes,
+  }) async {
+    final exists = await (select(commercialOffers)
+          ..where((row) =>
+              row.productType.equals(productType) &
+              row.productId.equals(productId) &
+              (supplierId == null
+                  ? row.supplierId.isNull()
+                  : row.supplierId.equals(supplierId))))
+        .getSingleOrNull();
+    if (exists != null) return;
+    await into(commercialOffers).insert(
+      CommercialOffersCompanion.insert(
+        productType: productType,
+        productId: productId,
+        supplierId: Value(supplierId),
+        price: Value(price),
+        priceDate: Value(priceDate),
+        notes: Value(notes),
+      ),
+    );
+  }
 }
