@@ -47,8 +47,45 @@ void main() {
   test('usa 3 filas de patas (delantera, intermedia, trasera) hasta 3 niveles',
       () {
     expect(result.supportRowCount, equals(3));
-    expect(result.supportPointsPerRow, equals(3)); // panelsHorizontal - 1
+    expect(result.supportPointsPerRow, equals(3)); // regla especial 2-4 -> 3
     expect(result.totalLegCount, equals(9)); // 3 x 3 x 1 estructura
+  });
+
+  test(
+      'supportPointsPerRow sigue la tabla especial (1 a 4 paneles '
+      'horizontales) y panelesHorizontal - 1 a partir de 5', () {
+    const expectedByPanelsHorizontal = {
+      1: 2,
+      2: 3,
+      3: 3,
+      4: 3,
+      5: 4,
+      6: 5,
+      7: 6,
+      8: 7,
+    };
+
+    expectedByPanelsHorizontal.forEach((panelsHorizontal, expectedLegs) {
+      final caseResult = StructureDesignRules.calculateInclinedFlatRoof(
+        InclinedFlatRoofInput(
+          requiredPanels: panelsHorizontal,
+          structuresCount: 1,
+          panelsHorizontal: panelsHorizontal,
+          panelRows: 1,
+          panelLengthMm: 2000,
+          panelWidthMm: 1000,
+          inclinationDegrees: 30,
+          frontLegCm: 20,
+        ),
+      );
+
+      expect(
+        caseResult.supportPointsPerRow,
+        equals(expectedLegs),
+        reason: 'panelesHorizontal=$panelsHorizontal debe dar '
+            '$expectedLegs patas por fila',
+      );
+    });
   });
 
   test('usa 4 filas de patas cuando hay más de 3 niveles de paneles', () {

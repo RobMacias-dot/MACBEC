@@ -26,6 +26,7 @@ class AppScaffold extends StatelessWidget {
     final currentPath = GoRouterState.of(context).uri.path;
     final isMainOrAuthRoute = _isMainOrAuthRoute(currentPath);
     final canGoBack = Navigator.of(context).canPop();
+    final interceptSystemPop = !isMainOrAuthRoute && !canGoBack;
 
     final effectiveActions = <Widget>[
       if (showHomeButton && !isMainOrAuthRoute)
@@ -37,30 +38,42 @@ class AppScaffold extends StatelessWidget {
       ...?actions,
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        leading: showBackButton && !isMainOrAuthRoute
-            ? IconButton(
-                tooltip: 'Regresar',
-                onPressed: () {
-                  if (canGoBack) {
-                    context.pop();
-                    return;
-                  }
+    return PopScope(
+      // El boton fisico/gesto de "regresar" de Android sigue la misma
+      // logica que el boton de regresar del AppBar: si el Navigator no
+      // tiene nada que hacer pop (porque se llego con context.go),
+      // navegamos a la ruta logica anterior en vez de dejar que el
+      // sistema cierre la app.
+      canPop: !interceptSystemPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.go(_fallbackBackRoute(currentPath));
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+          leading: showBackButton && !isMainOrAuthRoute
+              ? IconButton(
+                  tooltip: 'Regresar',
+                  onPressed: () {
+                    if (canGoBack) {
+                      context.pop();
+                      return;
+                    }
 
-                  context.go(_fallbackBackRoute(currentPath));
-                },
-                icon: const Icon(Icons.arrow_back),
-              )
-            : null,
-        actions: effectiveActions,
-      ),
-      floatingActionButton: floatingActionButton,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: child,
+                    context.go(_fallbackBackRoute(currentPath));
+                  },
+                  icon: const Icon(Icons.arrow_back),
+                )
+              : null,
+          actions: effectiveActions,
+        ),
+        floatingActionButton: floatingActionButton,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
         ),
       ),
     );

@@ -44,6 +44,16 @@ class CfeHistoricalPeriodSuggestion {
   final double kwh;
 }
 
+/// Nombre y dirección reconstruidos a partir del bloque de datos del
+/// cliente (las líneas antes de la etiqueta "NO. DE SERVICIO"), para
+/// recibos que no traen "Titular:" ni palabras clave de dirección propias.
+class _ClientInfoBlock {
+  const _ClientInfoBlock({required this.holderName, required this.addressLines});
+
+  final String? holderName;
+  final List<String> addressLines;
+}
+
 /// Heurísticas simples para sugerir datos del recibo CFE a partir del texto
 /// crudo de OCR. Los recibos varían mucho de formato, así que esto es solo
 /// una sugerencia editable: el usuario siempre debe revisar y confirmar cada
@@ -262,12 +272,31 @@ class CfeReceiptTextParser {
   }
 
   static double? _findTotalToPay(String text) {
+    // Prioridad 1: el recuadro "TOTAL A PAGAR" del encabezado del recibo es
+    // la etiqueta más específica e inequívoca, así que se prueba primero y a
+    // diferencia de las demás acepta montos sin centavos: varios recibos
+    // (formato residencial simple) lo imprimen como entero, ej. "$453" en
+    // vez de "$453.00".
+    final totalAPagar = RegExp(
+      r'TOTAL\s*A\s*PAGAR\D{0,10}\$?\s*([\d,OoIiLlSsB]+(?:\.\d{1,2})?)',
+      caseSensitive: false,
+    ).firstMatch(text);
+
+    if (totalAPagar != null && _hasRealDigit(totalAPagar.group(1)!)) {
+      final normalized =
+          _normalizeOcrDigits(totalAPagar.group(1)!).replaceAll(',', '');
+      final value = double.tryParse(normalized);
+      if (value != null) return value;
+    }
+
     // "\bTotal\b" (sin más palabras) cubre el formato de tabla "Desglose del
     // importe a pagar" donde la fila simplemente dice "Total" seguido del
     // importe en la siguiente línea. El límite de palabra evita que
-    // "Subtotal" (que contiene "total") dispare este mismo patrón.
+    // "Subtotal" (que contiene "total") dispare este mismo patrón. Aquí sí
+    // se exigen centavos porque es un patrón más laxo (una sola palabra) y
+    // sin eso aumenta el riesgo de enganchar un número que no es el total.
     final labeled = RegExp(
-      r'(?:Total\s*a?\s*Pagar|Importe\s*Total|Total\s*del\s*Recibo|A\s*Pagar|\bTotal\b)'
+      r'(?:Importe\s*Total|Total\s*del\s*Recibo|A\s*Pagar|\bTotal\b)'
       r'\D{0,10}\$?\s*([\d,OoIiLlSsB]+\.\d{2})',
       caseSensitive: false,
     ).firstMatch(text);
@@ -293,10 +322,19 @@ class CfeReceiptTextParser {
 
   static String? _findAddress(List<String> lines) {
     final index = _findAddressLineIndex(lines);
-    if (index == null) return null;
+    if (index != null) {
+      final line = lines[index].trim();
+      if (line.isNotEmpty) return line;
+    }
 
-    final line = lines[index].trim();
-    return line.isEmpty ? null : line;
+    // Respaldo estructural: muchos recibos residenciales imprimen la
+    // dirección sin ninguna de las palabras clave de arriba (sin "CALLE",
+    // "AV." ni "COL." — solo nombre de fraccionamiento y C.P.), así que se
+    // reconstruye a partir del bloque de datos del cliente delimitado por
+    // "NO. DE SERVICIO".
+    final block = _findClientInfoBlock(lines);
+    if (block == null || block.addressLines.isEmpty) return null;
+    return block.addressLines.join(', ');
   }
 
   // "Av. Paseo de la Reforma 164, Col. Juárez" es el domicilio fiscal fijo
@@ -367,8 +405,15 @@ class CfeReceiptTextParser {
       }
     }
 
-    // Sin una etiqueta explícita, el nombre suele imprimirse en una línea
-    // propia justo antes de la dirección del servicio.
+    // Respaldo estructural: la mayoría de los recibos no traen una etiqueta
+    // "Titular:" explícita, solo el nombre impreso en su propia línea dentro
+    // del bloque de datos del cliente (antes de "NO. DE SERVICIO").
+    final block = _findClientInfoBlock(lines);
+    if (block?.holderName != null) return block!.holderName;
+
+    // Último respaldo (recibos sin bloque "NO. DE SERVICIO" reconocible
+    // pero con una dirección detectada por palabra clave): el nombre suele
+    // imprimirse en una línea propia justo antes de la dirección.
     final addressIndex = _findAddressLineIndex(lines);
     if (addressIndex != null) {
       for (var i = addressIndex - 1; i >= 0 && i >= addressIndex - 3; i--) {
@@ -378,6 +423,82 @@ class CfeReceiptTextParser {
     }
 
     return null;
+  }
+
+  // Frases fijas adicionales (encabezado corporativo y recuadro de pago)
+  // que pueden interponerse entre el nombre y la dirección del cliente
+  // cuando el OCR intercala el texto de la columna derecha del recibo.
+  static const _clientBlockBoilerplateExtra = [
+    'PASEO DE LA REFORMA',
+    'ALCALDIA',
+    'ALCALDÍA',
+    'CODIGO POSTAL',
+    'CÓDIGO POSTAL',
+    'CIUDAD DE MEXICO',
+    'CIUDAD DE MÉXICO',
+    'RFC',
+    'DESCARGA',
+    'APP AUTORIZADA',
+    'PESOS',
+    'M.N.',
+  ];
+
+  static bool _isClientBlockBoilerplate(String line) {
+    if (line.isEmpty) return true;
+    if (line.contains(r'$')) return true;
+
+    final upperLine = line.toUpperCase();
+    for (final phrase in _holderNameBoilerplate) {
+      if (upperLine.contains(phrase)) return true;
+    }
+    for (final phrase in _clientBlockBoilerplateExtra) {
+      if (upperLine.contains(phrase)) return true;
+    }
+
+    return false;
+  }
+
+  // Marca el final del bloque de datos del cliente (nombre + dirección):
+  // la etiqueta "NO. DE SERVICIO" (o, en su defecto, "RMU"/"CUENTA") es la
+  // más consistente entre formatos de recibo CFE, incluso cuando el nombre
+  // y la dirección no traen ninguna etiqueta propia.
+  static int? _findServiceBlockIndex(List<String> lines) {
+    final labelPattern = RegExp(
+      r'N[O0o]?\.?\s*DE\s*SERVICIO|^RMU\b|^CUENTA\b',
+      caseSensitive: false,
+    );
+
+    for (var i = 0; i < lines.length; i++) {
+      if (labelPattern.hasMatch(lines[i])) return i;
+    }
+
+    return null;
+  }
+
+  static _ClientInfoBlock? _findClientInfoBlock(List<String> lines) {
+    final serviceIndex = _findServiceBlockIndex(lines);
+    if (serviceIndex == null || serviceIndex == 0) return null;
+
+    final candidates = <String>[];
+    for (var i = 0; i < serviceIndex; i++) {
+      final line = lines[i].trim();
+      if (_isClientBlockBoilerplate(line)) continue;
+      candidates.add(line);
+    }
+
+    if (candidates.isEmpty) return null;
+
+    String? holderName;
+    final addressLines = <String>[];
+    for (final candidate in candidates) {
+      if (holderName == null && _looksLikeName(candidate)) {
+        holderName = candidate;
+      } else {
+        addressLines.add(candidate);
+      }
+    }
+
+    return _ClientInfoBlock(holderName: holderName, addressLines: addressLines);
   }
 
   static bool _looksLikeName(String candidate) {

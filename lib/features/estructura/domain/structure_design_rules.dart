@@ -228,9 +228,10 @@ class InclinedFlatRoofResult {
   /// Separación entre patas de una misma fila, según la fórmula del
   /// documento funcional original (pág. 8):
   /// `[(valor_horizontal_total) - 1] / (No._de_paneles - 2)`.
-  /// `supportPointsPerRow` ya equivale a `panelsHorizontal - 1` (una pata
-  /// entre cada panel), por lo que `supportPointsPerRow - 1` gaps equivale
-  /// al denominador `panelsHorizontal - 2` de la fórmula original.
+  /// Se calcula en términos de `supportPointsPerRow` (patas por fila) en
+  /// vez de `panelsHorizontal` directamente, ya que desde la regla especial
+  /// de 1 a 4 paneles horizontales (ver cálculo de `supportPointsPerRow`
+  /// en [StructureDesignRules.calculate]) ambos valores ya no coinciden.
   double get legSpacingMeters {
     if (supportPointsPerRow <= 1) return 0;
     return (widthMeters - 1) / (supportPointsPerRow - 1);
@@ -273,7 +274,23 @@ class StructureDesignRules {
     final supportRowCount = input.panelRows <= 3
         ? input.panelRows + 1
         : input.panelRows + 2;
-    final supportPointsPerRow = max(input.panelsHorizontal - 1, 1);
+
+    // Patas por fila de apoyo (supportPointsPerRow).
+    //
+    // Para estructuras pequeñas NO se usa la fórmula `panelesHorizontal - 1`.
+    // La regla especial aplica para 1, 2, 3 y 4 paneles horizontales:
+    //   panelesHorizontal == 1              -> patasPorFila = 2
+    //   panelesHorizontal >= 2 y <= 4        -> patasPorFila = 3
+    // A partir de 5 paneles horizontales comienza la regla general:
+    //   panelesHorizontal >= 5               -> patasPorFila = panelesHorizontal - 1
+    final int supportPointsPerRow;
+    if (input.panelsHorizontal == 1) {
+      supportPointsPerRow = 2;
+    } else if (input.panelsHorizontal <= 4) {
+      supportPointsPerRow = 3;
+    } else {
+      supportPointsPerRow = input.panelsHorizontal - 1;
+    }
     final legHeightsMeters = List<double>.generate(supportRowCount, (index) {
       final progress = supportRowCount == 1
           ? 0.0

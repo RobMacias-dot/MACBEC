@@ -173,4 +173,55 @@ del 14 JUL 25 al 10 SEP 25
       equals('10 NOV 25 - 12 ENE 26'),
     );
   });
+
+  test(
+      'recibo residencial real: sin etiqueta "Titular:", dirección sin '
+      'palabras clave (CALLE/AV/COL) y total sin centavos en el recuadro '
+      '"TOTAL A PAGAR"', () {
+    const rawText = '''
+Comisión Federal de Electricidad
+Av. Paseo de la Reforma 164, Col. Juárez,
+Alcaldía Cuauhtémoc, Código Postal: 06600,
+Ciudad de México, RFC: CFE370814QI0
+MACIAS GARCIA ROBERTO
+TOTAL A PAGAR:
+\$453
+BUGAMBILIAS 114 JB
+NVO 2DO ANILLO Y Y COST LATERAL INEGI
+JARDINES DE BUGAMBILIAS. C.P. 20276
+AGUASCALIENTES, Ags7F
+(CUATROCIENTOS CINCUENTA Y TRES PESOS M.N.)
+DESCARGA NUESTRA APP AUTORIZADA
+NO. DE SERVICIO : 096990551259
+RMU : 20276 99-05-11 XAXX-010101 001 CFE
+CUENTA : 17DP52A011720390
+TARIFA: 01
+PERIODO FACTURADO: 10 NOV 25 - 12 ENE 26
+Energía (kWh)
+16748
+16463
+285
+''';
+
+    final suggestion = CfeReceiptTextParser.parse(rawText);
+
+    expect(suggestion.holderName, equals('MACIAS GARCIA ROBERTO'));
+    expect(suggestion.serviceAddress, isNotNull);
+    expect(suggestion.serviceAddress, contains('BUGAMBILIAS 114'));
+    expect(
+      suggestion.serviceAddress,
+      isNot(contains('PASEO DE LA REFORMA')),
+    );
+    expect(suggestion.rpu, equals('096990551259'));
+    expect(suggestion.tariff, equals('01'));
+    expect(
+      suggestion.billingPeriod,
+      equals('10 NOV 25 - 12 ENE 26'),
+    );
+    expect(suggestion.currentPeriodKwh, equals(285));
+
+    // El recuadro "TOTAL A PAGAR" de este recibo imprime el monto como
+    // entero (sin ".00"); antes del fix se perdía por exigir centavos.
+    expect(suggestion.totalToPay, equals(453));
+  });
 }
