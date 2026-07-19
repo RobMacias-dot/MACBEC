@@ -79,20 +79,59 @@ class CfeReceiptTextParser {
     '1A',
   ];
 
+  /// Analiza el texto crudo de OCR de un solo recibo (frente y reverso ya
+  /// mezclados en un solo string, o solo el frente). Para OCR real de dos
+  /// fotos (frente + reverso) usa [parseFrontAndBack], que evita confundir
+  /// datos de una página con la otra.
   static CfeReceiptOcrSuggestion parse(String rawText) {
-    final normalized = rawText.replaceAll('\r', '');
-    final lines = normalized.split('\n').map((line) => line.trim()).toList();
+    return parseFrontAndBack(rawText);
+  }
+
+  /// Igual que [parse], pero recibe por separado el texto del frente y
+  /// (si se capturó) el reverso del recibo.
+  ///
+  /// Todos los campos que viven en el frente (titular, dirección, no. de
+  /// servicio, tarifa, periodo facturado, consumo del periodo, total a
+  /// pagar) se buscan primero solo en [frontText]: la tabla "Consumo
+  /// histórico" del reverso tiene muchas fechas y montos con la misma
+  /// forma que estos campos, y buscarlos en el texto combinado puede
+  /// enganchar un dato del reverso en vez del frente real. Si un campo no
+  /// se encuentra en el frente (ej. por mala calidad de esa foto), se
+  /// reintenta contra el texto combinado como respaldo.
+  ///
+  /// El historial de consumo, en cambio, siempre viene impreso en el
+  /// reverso (regla del negocio, no una heurística): se busca ahí y solo
+  /// se usa el frente como respaldo si no se capturó reverso.
+  static CfeReceiptOcrSuggestion parseFrontAndBack(
+    String frontText, {
+    String? backText,
+  }) {
+    final hasBackText = backText != null && backText.isNotEmpty;
+    final combinedText = hasBackText ? '$frontText\n$backText' : frontText;
+    final frontLines = _linesOf(frontText);
+    final combinedLines = _linesOf(combinedText);
 
     return CfeReceiptOcrSuggestion(
-      holderName: _findHolderName(lines),
-      serviceAddress: _findAddress(lines),
-      rpu: _findRpu(normalized),
-      tariff: _findTariff(normalized),
-      billingPeriod: _findBillingPeriod(normalized),
-      currentPeriodKwh: _findKwh(normalized),
-      totalToPay: _findTotalToPay(normalized),
-      historicalPeriods: _findHistoricalPeriods(normalized),
+      holderName:
+          _findHolderName(frontLines) ?? _findHolderName(combinedLines),
+      serviceAddress:
+          _findAddress(frontLines) ?? _findAddress(combinedLines),
+      rpu: _findRpu(frontText) ?? _findRpu(combinedText),
+      tariff: _findTariff(frontText) ?? _findTariff(combinedText),
+      billingPeriod:
+          _findBillingPeriod(frontText) ?? _findBillingPeriod(combinedText),
+      currentPeriodKwh: _findKwh(frontText) ?? _findKwh(combinedText),
+      totalToPay:
+          _findTotalToPay(frontText) ?? _findTotalToPay(combinedText),
+      historicalPeriods: _findHistoricalPeriods(
+        hasBackText ? backText : frontText,
+      ),
     );
+  }
+
+  static List<String> _linesOf(String text) {
+    final normalized = text.replaceAll('\r', '');
+    return normalized.split('\n').map((line) => line.trim()).toList();
   }
 
   // Confusiones típicas del OCR de ML Kit entre letras y dígitos impresos.
@@ -184,11 +223,25 @@ class CfeReceiptTextParser {
   static String? _findBillingPeriod(String text) {
     const months = 'ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC';
     const datePattern = r'\d{1,2}\s*(?:' + months + r')\.?\s*\d{2,4}';
+    const rangePattern =
+        '($datePattern)\\s*(?:al?|-|a)\\s*($datePattern)';
+    final upperText = text.toUpperCase();
 
-    final rangeMatch = RegExp(
-      '($datePattern)\\s*(?:al?|-|a)\\s*($datePattern)',
+    // Prioridad 1: anclado a la etiqueta "Periodo Facturado", para no
+    // confundirlo con otro rango con la misma forma "fecha - fecha" que
+    // pueda haber en el recibo, como una fila de la tabla "Consumo
+    // histórico" del reverso.
+    final labeled = RegExp(
+      'PERIODO\\s*FACTURADO\\D{0,10}?$rangePattern',
       caseSensitive: false,
-    ).firstMatch(text.toUpperCase());
+    ).firstMatch(upperText);
+
+    if (labeled != null) {
+      return '${labeled.group(1)?.trim()} - ${labeled.group(2)?.trim()}';
+    }
+
+    final rangeMatch =
+        RegExp(rangePattern, caseSensitive: false).firstMatch(upperText);
 
     if (rangeMatch == null) return null;
 
@@ -295,8 +348,11 @@ class CfeReceiptTextParser {
     // "Subtotal" (que contiene "total") dispare este mismo patrón. Aquí sí
     // se exigen centavos porque es un patrón más laxo (una sola palabra) y
     // sin eso aumenta el riesgo de enganchar un número que no es el total.
+    // El lookahead negativo excluye "Total periodo": es el encabezado de
+    // columna de la fila "Energía (kWh)", no el total a pagar, y comparte
+    // la misma palabra "Total".
     final labeled = RegExp(
-      r'(?:Importe\s*Total|Total\s*del\s*Recibo|A\s*Pagar|\bTotal\b)'
+      r'(?:Importe\s*Total|Total\s*del\s*Recibo|A\s*Pagar|\bTotal\b(?!\s*per[ií]odo))'
       r'\D{0,10}\$?\s*([\d,OoIiLlSsB]+\.\d{2})',
       caseSensitive: false,
     ).firstMatch(text);
@@ -321,20 +377,26 @@ class CfeReceiptTextParser {
   }
 
   static String? _findAddress(List<String> lines) {
-    final index = _findAddressLineIndex(lines);
-    if (index != null) {
-      final line = lines[index].trim();
-      if (line.isNotEmpty) return line;
+    // Prioridad 1: el bloque de datos del cliente, delimitado por "NO. DE
+    // SERVICIO", es más confiable que buscar palabras clave en todo el
+    // texto. Un recibo puede traer otras direcciones impresas en otras
+    // secciones (ej. un módulo de atención en el reverso) que no son la
+    // dirección del servicio del cliente, y el escaneo por palabra clave
+    // no distingue eso: agarraría la primera que encuentre, sea o no la
+    // correcta.
+    final block = _findClientInfoBlock(lines);
+    if (block != null && block.addressLines.isNotEmpty) {
+      return block.addressLines.join(', ');
     }
 
-    // Respaldo estructural: muchos recibos residenciales imprimen la
-    // dirección sin ninguna de las palabras clave de arriba (sin "CALLE",
-    // "AV." ni "COL." — solo nombre de fraccionamiento y C.P.), así que se
-    // reconstruye a partir del bloque de datos del cliente delimitado por
-    // "NO. DE SERVICIO".
-    final block = _findClientInfoBlock(lines);
-    if (block == null || block.addressLines.isEmpty) return null;
-    return block.addressLines.join(', ');
+    // Respaldo: recibos sin la etiqueta "NO. DE SERVICIO" reconocible,
+    // donde puede haber una palabra clave de dirección utilizable (ej.
+    // "CALLE ... COL. ...").
+    final index = _findAddressLineIndex(lines);
+    if (index == null) return null;
+
+    final line = lines[index].trim();
+    return line.isEmpty ? null : line;
   }
 
   // "Av. Paseo de la Reforma 164, Col. Juárez" es el domicilio fiscal fijo

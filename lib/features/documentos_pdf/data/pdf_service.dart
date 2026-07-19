@@ -633,8 +633,8 @@ class PdfService {
         result.supportPointsPerRow > 1 ? result.supportPointsPerRow : 1;
     final spacing = legCount > 1 ? width / (legCount - 1) : 0.0;
     final availableHeight = size.y - marginBottom - 20;
-    final rearHeight = _max(result.rearLegMeters, 0.1);
-    final scale = availableHeight / rearHeight;
+    final frontHeight = _max(result.frontLegMeters, 0.1);
+    final scale = availableHeight / frontHeight;
 
     canvas
       ..setStrokeColor(PdfColors.grey600)
@@ -647,7 +647,7 @@ class PdfService {
       ..setLineWidth(1.4);
     for (var index = 0; index < legCount; index++) {
       final x = marginLeft + (legCount == 1 ? width / 2 : spacing * index);
-      canvas.drawLine(x, floorY, x, floorY + result.rearLegMeters * scale);
+      canvas.drawLine(x, floorY, x, floorY + result.frontLegMeters * scale);
     }
     canvas.strokePath();
 
@@ -662,7 +662,7 @@ class PdfService {
     canvas.drawString(
       font,
       8,
-      'Altura pata trasera: ${result.rearLegMeters.toStringAsFixed(2)} m',
+      'Altura pata delantera: ${result.frontLegMeters.toStringAsFixed(2)} m',
       marginLeft,
       floorY - 14,
     );
@@ -687,7 +687,11 @@ class PdfService {
     final topLeft = PdfPoint(leftX, floorY + rearHeight * scale);
     final topRight = PdfPoint(rightX, floorY + rearHeight * scale);
     final middleX = marginLeft + width / 2;
-    final middleTop = PdfPoint(middleX, floorY + result.middleLegMeters * scale);
+    // Las tres patas de esta vista pertenecen a la misma fila (la
+    // trasera), así que las tres deben dibujarse a la misma altura
+    // (rearHeight) — no a `middleLegMeters`, que es la altura de una fila
+    // intermedia distinta (más corta) usada en la vista lateral.
+    final middleTop = PdfPoint(middleX, floorY + rearHeight * scale);
     final middleBase = PdfPoint(middleX, floorY);
 
     canvas

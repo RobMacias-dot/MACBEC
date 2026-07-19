@@ -48,16 +48,19 @@ class OcrService {
   }
 
   /// Rasteriza las primeras páginas de un PDF a imágenes temporales y corre
-  /// OCR sobre cada una. Es lo que permite que los recibos CFE adjuntados
-  /// como PDF (la forma más común al bajarlos del portal CFE) también
-  /// generen sugerencias automáticas, igual que las fotos.
-  Future<String?> _extractTextFromPdf(String pdfPath) async {
+  /// OCR sobre cada una, devolviendo el texto de cada página por separado
+  /// (una entrada por página, en orden). Es lo que permite que los recibos
+  /// CFE adjuntados como PDF (la forma más común al bajarlos del portal
+  /// CFE) también generen sugerencias automáticas, igual que las fotos, y
+  /// que [CfeReceiptTextParser] pueda distinguir el frente (página 1) del
+  /// reverso (página 2) igual que con dos fotos.
+  Future<List<String>> _extractPageTextsFromPdf(String pdfPath) async {
     final tempDir = await getTemporaryDirectory();
     final tempFiles = <File>[];
 
     try {
       final documentBytes = await File(pdfPath).readAsBytes();
-      final buffer = StringBuffer();
+      final pageTexts = <String>[];
       var pageIndex = 0;
 
       await for (final page in Printing.raster(
@@ -78,15 +81,13 @@ class OcrService {
 
         final pageText = await extractTextDraft(tempFile.path);
         if (pageText != null && pageText.isNotEmpty) {
-          if (buffer.isNotEmpty) buffer.write('\n');
-          buffer.write(pageText);
+          pageTexts.add(pageText);
         }
       }
 
-      final text = buffer.toString().trim();
-      return text.isEmpty ? null : text;
+      return pageTexts;
     } catch (_) {
-      return null;
+      return const [];
     } finally {
       for (final tempFile in tempFiles) {
         try {
@@ -101,33 +102,47 @@ class OcrService {
   bool _isPdf(String filePath) =>
       p.extension(filePath).toLowerCase() == '.pdf';
 
+  /// Texto OCR de un archivo del recibo, como lista de "páginas": una sola
+  /// entrada para una foto, o una entrada por página para un PDF.
+  Future<List<String>> _extractPageTexts(String filePath) async {
+    if (_isPdf(filePath)) return _extractPageTextsFromPdf(filePath);
+
+    final text = await extractTextDraft(filePath);
+    return text == null || text.isEmpty ? const [] : [text];
+  }
+
   /// Corre el OCR sobre uno (o dos, frente/reverso) archivos del recibo CFE
   /// — imagen o PDF — y la pasa por [CfeReceiptTextParser]. Compartido entre
   /// la captura automática (`ReciboCfeScreen`) y el botón manual "Obtener
   /// información" de `ReciboCfeRevisionScreen`, para no duplicar la lógica
   /// de extracción.
+  ///
+  /// El texto de [imagePath] (y su primera página si es un PDF de varias)
+  /// se trata como el frente del recibo; el resto (texto de
+  /// [extraImagePath], o páginas siguientes de un PDF) se trata como
+  /// reverso. Esta distinción se le pasa a [CfeReceiptTextParser] para que
+  /// no confunda datos del reverso (ej. la tabla de consumo histórico, que
+  /// siempre va ahí) con los del frente.
   Future<CfeReceiptOcrSuggestion?> extractCfeReceiptSuggestion(
     String imagePath, {
     String? extraImagePath,
   }) async {
-    final rawText = _isPdf(imagePath)
-        ? await _extractTextFromPdf(imagePath)
-        : await extractTextDraft(imagePath);
-    var combinedText = rawText ?? '';
+    final pageTexts = <String>[...await _extractPageTexts(imagePath)];
 
     if (extraImagePath != null) {
-      final extraText = _isPdf(extraImagePath)
-          ? await _extractTextFromPdf(extraImagePath)
-          : await extractTextDraft(extraImagePath);
-      if (extraText != null && extraText.isNotEmpty) {
-        combinedText =
-            combinedText.isEmpty ? extraText : '$combinedText\n$extraText';
-      }
+      pageTexts.addAll(await _extractPageTexts(extraImagePath));
     }
 
-    if (combinedText.isEmpty) return null;
+    if (pageTexts.isEmpty) return null;
 
-    final suggestion = CfeReceiptTextParser.parse(combinedText);
+    final frontText = pageTexts.first;
+    final backText =
+        pageTexts.length > 1 ? pageTexts.sublist(1).join('\n') : null;
+
+    final suggestion = CfeReceiptTextParser.parseFrontAndBack(
+      frontText,
+      backText: backText,
+    );
     return suggestion.isEmpty ? null : suggestion;
   }
 }
